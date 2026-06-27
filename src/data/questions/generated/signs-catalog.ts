@@ -26,6 +26,10 @@ const regulatory: Sign[] = [
   { name: "Keep Right", meaning: "you must keep to the right of a divider" },
   { name: "Speed Limit", meaning: "the maximum speed allowed in good conditions" },
   { name: "No Parking", meaning: "parking is not allowed at this location" },
+  { name: "No Bicycles", meaning: "bicycles are not allowed on this road" },
+  { name: "No Pedestrians", meaning: "pedestrians may not walk along this road" },
+  { name: "No Trucks", meaning: "trucks are prohibited on this road" },
+  { name: "Minimum Speed", meaning: "you must drive at least the posted speed" },
 ];
 
 const warnGeometry: Sign[] = [
@@ -39,6 +43,10 @@ const warnGeometry: Sign[] = [
   { name: "Narrow Bridge", meaning: "the bridge ahead is narrow" },
   { name: "Steep Grade", meaning: "there is a steep downhill ahead" },
   { name: "Two-Way Traffic", meaning: "you are entering a road with two-way traffic" },
+  { name: "Dip", meaning: "there is a low dip in the road ahead" },
+  { name: "Bump", meaning: "there is a bump or rough spot ahead" },
+  { name: "Soft Shoulder", meaning: "the road edge is not paved for normal driving" },
+  { name: "Low Clearance", meaning: "there is a height limit on the structure ahead" },
 ];
 
 const warnCrossings: Sign[] = [
@@ -53,6 +61,9 @@ const warnCrossings: Sign[] = [
   { name: "Bicycle Crossing", meaning: "watch for bicycles crossing" },
   { name: "Deer Crossing", meaning: "watch for animals crossing the road" },
   { name: "School Zone", meaning: "you are approaching a school area" },
+  { name: "Truck Crossing", meaning: "trucks may be entering or crossing the road" },
+  { name: "Farm Equipment", meaning: "slow-moving farm equipment may be on the road" },
+  { name: "Playground", meaning: "children may be at play nearby" },
 ];
 
 const guideService: Sign[] = [
@@ -64,6 +75,8 @@ const guideService: Sign[] = [
   { name: "Recreational Area", meaning: "a park or recreation site is nearby" },
   { name: "Route Marker", meaning: "it identifies the highway or route number" },
   { name: "Mile Marker", meaning: "it shows the distance along the highway" },
+  { name: "Camping", meaning: "a campground is located nearby" },
+  { name: "Telephone", meaning: "a telephone is available nearby" },
 ];
 
 const construction: Sign[] = [
@@ -73,6 +86,9 @@ const construction: Sign[] = [
   { name: "Lane Closed", meaning: "a lane ahead is closed" },
   { name: "Workers Present", meaning: "workers are on or near the road" },
   { name: "Reduced Speed Ahead", meaning: "a lower speed limit is coming up" },
+  { name: "Shoulder Work", meaning: "workers are working on the road shoulder ahead" },
+  { name: "Uneven Lanes", meaning: "the lanes ahead are at different heights" },
+  { name: "Loose Gravel", meaning: "there is loose gravel on the road surface" },
 ];
 
 function fromGroup(prefix: string, group: Sign[]): Question[] {
