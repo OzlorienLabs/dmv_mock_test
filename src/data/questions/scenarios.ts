@@ -1301,13 +1301,9 @@ const seeds: Seed[] = [
   ]),
 ];
 
-export const QUESTIONS: Question[] = seeds.map((q) => ({
+export const SCENARIO_QUESTIONS: Question[] = seeds.map((q) => ({
   origin: "generated" as const,
   sourceName: "Based on the California Driver Handbook",
   sourceUrl: HANDBOOK_URL,
   ...q,
 }));
-
-export function getQuestionById(id: string): Question | undefined {
-  return QUESTIONS.find((q) => q.id === id);
-}
