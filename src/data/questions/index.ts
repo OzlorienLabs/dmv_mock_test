@@ -9,6 +9,9 @@ import { SCENARIO6_QUESTIONS } from "./scenarios6";
 import { SCENARIO7_QUESTIONS } from "./scenarios7";
 import { SCENARIO8_QUESTIONS } from "./scenarios8";
 import { SCENARIO9_QUESTIONS } from "./scenarios9";
+import { SCENARIO10_QUESTIONS } from "./scenarios10";
+import { SCENARIO11_QUESTIONS } from "./scenarios11";
+import { SCENARIO12_QUESTIONS } from "./scenarios12";
 import { GENERATED_QUESTIONS } from "./generated";
 
 /**
@@ -31,6 +34,9 @@ export const QUESTIONS: Question[] = [
   ...SCENARIO7_QUESTIONS,
   ...SCENARIO8_QUESTIONS,
   ...SCENARIO9_QUESTIONS,
+  ...SCENARIO10_QUESTIONS,
+  ...SCENARIO11_QUESTIONS,
+  ...SCENARIO12_QUESTIONS,
 ];
 
 export function getQuestionById(id: string): Question | undefined {

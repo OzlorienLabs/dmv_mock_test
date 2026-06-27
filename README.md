@@ -19,9 +19,11 @@ Implemented:
   instant feedback.
 - **Exam-like category sampling** so each test mirrors the real topic mix, with a
   seedable RNG for deterministic/curated tests.
-- **~115 original practice questions** across all 16 topics, each carrying
-  provenance (`origin` + source link) so the UI shows whether a question is a
-  practice item, a sourced item, or an official DMV sample.
+- **1,000+ questions** across all 16 topics (38 verbatim official DMV sample
+  questions + ~970 generated/authored), each carrying provenance (`origin` +
+  source link) so the UI shows whether a question is a practice item, a sourced
+  item, or an official DMV sample. A validation gate (unit test) blocks duplicate
+  ids, duplicate questions, out-of-range answers, and missing explanations.
 - **Curated inline-SVG diagrams** for visual concepts (4-way stops, roundabouts,
   curb parking, sign shapes, etc.).
 - **Results & review** with pass/fail banner, per-topic breakdown, and a full
