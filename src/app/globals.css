@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+/*
+ * California DMV-inspired theme.
+ * Colors approximate the California state design system (cagov) palette:
+ * primary blue #046b99, gold accent #fdb81e, dark slate #323a45.
+ * Font: Public Sans (USWDS / cagov standard), loaded via next/font in layout.
+ * This is an UNOFFICIAL study tool and is not affiliated with the California DMV.
+ */
+@theme {
+  --color-ca-blue: #046b99;
+  --color-ca-blue-dark: #034c6d;
+  --color-ca-navy: #0b3d6b;
+  --color-ca-gold: #fdb81e;
+  --color-ca-gold-dark: #e0a200;
+  --color-ca-ink: #2b2d33;
+  --color-ca-gray: #4a4d52;
+  --color-ca-muted: #6b7177;
+  --color-ca-line: #d4d7dc;
+  --color-ca-bg: #eef1f4;
+  --color-ca-card: #ffffff;
+  --color-ca-green: #1e7e34;
+  --color-ca-green-bg: #e6f4ea;
+  --color-ca-red: #b3261e;
+  --color-ca-red-bg: #fbeae9;
+
+  --font-sans: var(--font-public-sans), system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-ca-bg);
+  color: var(--color-ca-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Visible keyboard focus for accessibility (WCAG). */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--color-ca-gold);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
