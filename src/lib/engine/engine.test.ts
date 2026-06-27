@@ -4,6 +4,7 @@ import {
   TEST_PROFILES,
   mulberry32,
   shuffle,
+  shuffleOptions,
   allocateByWeight,
   buildMockTest,
   scoreAttempt,
@@ -106,6 +107,24 @@ describe("buildMockTest", () => {
     const small = makePool(1).slice(0, 10);
     const test = buildMockTest(small, 46, mulberry32(2));
     expect(test).toHaveLength(10);
+  });
+});
+
+describe("shuffleOptions", () => {
+  it("keeps correctIndex pointing at the same answer text", () => {
+    const q: Question = {
+      id: "x",
+      category: "parking",
+      prompt: "p",
+      options: ["alpha", "bravo", "charlie"],
+      correctIndex: 0,
+      origin: "generated",
+    };
+    for (let s = 1; s < 25; s++) {
+      const r = shuffleOptions(q, mulberry32(s));
+      expect(new Set(r.options)).toEqual(new Set(["alpha", "bravo", "charlie"]));
+      expect(r.options[r.correctIndex]).toBe("alpha");
+    }
   });
 });
 

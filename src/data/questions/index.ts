@@ -2,6 +2,8 @@ import type { Question } from "@/lib/types";
 import { OFFICIAL_QUESTIONS } from "./official";
 import { SCENARIO_QUESTIONS } from "./scenarios";
 import { SCENARIO2_QUESTIONS } from "./scenarios2";
+import { SCENARIO3_QUESTIONS } from "./scenarios3";
+import { SCENARIO4_QUESTIONS } from "./scenarios4";
 import { GENERATED_QUESTIONS } from "./generated";
 
 /**
@@ -17,6 +19,8 @@ export const QUESTIONS: Question[] = [
   ...GENERATED_QUESTIONS,
   ...SCENARIO_QUESTIONS,
   ...SCENARIO2_QUESTIONS,
+  ...SCENARIO3_QUESTIONS,
+  ...SCENARIO4_QUESTIONS,
 ];
 
 export function getQuestionById(id: string): Question | undefined {

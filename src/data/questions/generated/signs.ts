@@ -28,16 +28,7 @@ const colorFacts = [
   { color: "a brown", meaning: "A recreational or scenic area" },
 ];
 
-const namedSigns = [
-  { name: "Do Not Enter", meaning: "You must not enter the roadway ahead" },
-  { name: "Wrong Way", meaning: "You are traveling against traffic and must turn around" },
-  { name: "No U-Turn", meaning: "U-turns are not allowed at that location" },
-  { name: "One Way", meaning: "Traffic moves only in the direction of the arrow" },
-  { name: "Keep Right", meaning: "Stay to the right of a divider or island" },
-  { name: "Divided Highway", meaning: "The road ahead is divided into two one-way roadways" },
-  { name: "Slippery When Wet", meaning: "The road may be slippery when wet, so slow down" },
-  { name: "Merging Traffic", meaning: "Traffic may merge onto your roadway ahead" },
-];
+// Named-sign questions live in signs-catalog.ts (a fuller DL-37 sign set).
 
 function distractors<T extends { meaning: string }>(arr: T[], i: number): string[] {
   return [arr[(i + 1) % arr.length].meaning, arr[(i + 2) % arr.length].meaning];
@@ -69,19 +60,6 @@ export const SIGN_QUESTIONS: Question[] = [
       sourceName: "Based on the CA road sign chart (DL-37)",
       sourceUrl: URLS.SIGNCHART,
       rotateBy: i + 1,
-    }),
-  ),
-  ...namedSigns.map((f, i) =>
-    toQuestion({
-      id: `gen-named-${i + 1}`,
-      category: "signs-signals",
-      prompt: `What does a “${f.name}” sign mean?`,
-      correct: f.meaning,
-      distractors: distractors(namedSigns, i),
-      explanation: `A “${f.name}” sign means ${f.meaning.toLowerCase()}.`,
-      sourceName: "Based on the CA road sign chart (DL-37)",
-      sourceUrl: URLS.SIGNCHART,
-      rotateBy: i + 2,
     }),
   ),
 ];

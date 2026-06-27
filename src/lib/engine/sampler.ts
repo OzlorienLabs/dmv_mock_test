@@ -2,6 +2,23 @@ import { CATEGORIES, type CategoryId, type Question } from "@/lib/types";
 import { shuffle, type RNG } from "./rng";
 
 /**
+ * Return a copy of the question with its answer options shuffled (and
+ * `correctIndex` updated). Used at test-build time so the correct answer isn't
+ * biased toward a fixed position regardless of how a question was authored.
+ */
+export function shuffleOptions(q: Question, rng: RNG): Question {
+  const order = shuffle(
+    q.options.map((_, i) => i),
+    rng,
+  );
+  return {
+    ...q,
+    options: order.map((i) => q.options[i]),
+    correctIndex: order.indexOf(q.correctIndex),
+  };
+}
+
+/**
  * Allocate `total` slots across categories proportional to their weights using
  * the largest-remainder method, so the per-category counts sum to exactly
  * `total`. Only categories present in `weights` receive slots.
@@ -90,5 +107,5 @@ export function buildMockTest(
     }
   }
 
-  return shuffle(chosen, rng);
+  return shuffle(chosen, rng).map((q) => shuffleOptions(q, rng));
 }
