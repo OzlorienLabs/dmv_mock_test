@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.github
+e2e
+firebase-test
+test-results
+playwright-report
+*.log
+.env*
+!.env.local.example
+README.md
