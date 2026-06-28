@@ -1,0 +1,58 @@
+# Firebase App Hosting configuration.
+# https://firebase.google.com/docs/app-hosting/configure
+#
+# App Hosting builds and deploys this Next.js app on every push to the connected
+# branch (push-to-deploy). Set real values in the App Hosting backend (console)
+# or reference Secret Manager. NEXT_PUBLIC_* must be available at BUILD time
+# (they are inlined into the client bundle); server-only secrets are RUNTIME.
+
+runConfig:
+  minInstances: 0
+  maxInstances: 2
+  cpu: 1
+  memoryMiB: 512
+  concurrency: 80
+
+env:
+  # --- Public Firebase web config (client) ---
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    secret: firebase-web-api-key
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: your-project.firebaseapp.com
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: your-project
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: your-project.appspot.com
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "000000000000"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: "1:000000000000:web:abcdef"
+    availability: [BUILD, RUNTIME]
+
+  # --- Optional App Check (reCAPTCHA Enterprise site key) ---
+  # - variable: NEXT_PUBLIC_RECAPTCHA_SITE_KEY
+  #   value: your-recaptcha-site-key
+  #   availability: [BUILD, RUNTIME]
+
+  # --- Server-only (for the bring-your-own-key AI routes) ---
+  # App Hosting runs on Cloud Run with Application Default Credentials, so
+  # firebase-admin works without a key file:
+  - variable: FIREBASE_ADMIN_ENABLED
+    value: "true"
+    availability: [RUNTIME]
+  # 32-byte hex key that encrypts each user's Gemini key (store in Secret Manager):
+  - variable: GEMINI_KEY_ENCRYPTION_KEY
+    secret: gemini-key-encryption-key
+    availability: [RUNTIME]
+  # Enforce App Check on the API routes once App Check is set up:
+  # - variable: APP_CHECK_REQUIRED
+  #   value: "true"
+  #   availability: [RUNTIME]
+  # - variable: GEMINI_TEXT_MODEL
+  #   value: gemini-2.5-flash
+  #   availability: [RUNTIME]

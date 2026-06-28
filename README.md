@@ -10,7 +10,7 @@ and (coming soon) AI audio explanations in multiple languages.
 > actual exam. Always verify rules in the
 > [official California Driver Handbook](https://www.dmv.ca.gov/portal/handbook/california-driver-handbook/).
 
-## Status — Phases 1–5 (engine, 1,000+ bank, accounts & sync, AI audio, road test)
+## Status — Phases 1–6 (production-ready)
 
 Implemented:
 
@@ -42,6 +42,10 @@ Implemented:
   list, and a self-assessment with a readiness meter (saved on-device).
 - **California design-system styling** (Public Sans, CA blue/gold) and a clear
   non-affiliation disclaimer.
+- **Installable PWA with offline support** (manifest + service worker — the
+  static question bank works offline after the first visit), optional **App
+  Check**, GitHub Actions **CI** (lint/typecheck/unit/build/e2e + rules), and
+  **Firebase App Hosting** push-to-deploy. See [PRODUCTION.md](PRODUCTION.md).
 
 The full multi-phase plan (content build-out to 1000+, Firebase Auth/Firestore,
 AI audio pipeline, bring-your-own Gemini key, Firebase App Hosting CI/CD) lives in

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/firebase/auth";
+import { getAppCheckToken } from "@/lib/firebase/config";
 
 interface KeyStatus {
   configured: boolean;
@@ -23,11 +24,13 @@ export default function SettingsPage() {
     async (method: string, body?: unknown) => {
       if (!user) throw new Error("Not signed in");
       const token = await user.getIdToken();
+      const appCheck = await getAppCheckToken();
       return fetch("/api/key", {
         method,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
+          ...(appCheck ? { "X-Firebase-AppCheck": appCheck } : {}),
         },
         body: body ? JSON.stringify(body) : undefined,
       });

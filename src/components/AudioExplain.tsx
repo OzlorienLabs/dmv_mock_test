@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { LanguageCode } from "@/lib/types";
 import { useAuth } from "@/lib/firebase/auth";
+import { getAppCheckToken } from "@/lib/firebase/config";
 import { getCachedExplanations } from "@/lib/audio/cache";
 
 const LANGS: { code: LanguageCode; label: string; bcp47: string }[] = [
@@ -76,9 +77,14 @@ export function AudioExplain({
       return null;
     }
     const token = await user.getIdToken();
+    const appCheck = await getAppCheckToken();
     const res = await fetch("/api/explain", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...(appCheck ? { "X-Firebase-AppCheck": appCheck } : {}),
+      },
       body: JSON.stringify({ questionId, language: languageLabel }),
     });
     const data = await res.json().catch(() => ({}));
