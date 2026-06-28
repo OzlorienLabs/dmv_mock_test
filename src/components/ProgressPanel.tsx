@@ -1,21 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getSummary, type ProgressSummary } from "@/lib/progress/store";
+import { useProgress } from "@/lib/progress/provider";
 import { CATEGORY_MAP, type CategoryId } from "@/lib/types";
 
 export function ProgressPanel() {
-  const [summary, setSummary] = useState<ProgressSummary | null>(null);
+  const { summary, loading, cloudActive } = useProgress();
 
-  useEffect(() => {
-    setSummary(getSummary());
-  }, []);
+  if (loading && !summary) {
+    return (
+      <div className="rounded-xl border border-ca-line bg-white p-4 text-sm text-ca-muted">
+        Loading your progress…
+      </div>
+    );
+  }
 
   if (!summary || summary.attempts === 0) {
     return (
       <div className="rounded-xl border border-dashed border-ca-line bg-white p-4 text-sm text-ca-muted">
-        Your progress will appear here after your first test. Nothing is sent
-        anywhere — results are saved on this device.
+        Your progress will appear here after your first test.{" "}
+        {cloudActive
+          ? "It’s synced to your account."
+          : "Results are saved on this device; sign in to sync across devices."}
       </div>
     );
   }
@@ -38,6 +43,9 @@ export function ProgressPanel() {
         <Stat label="Passed" value={String(summary.passes)} />
         <Stat label="Best" value={`${summary.bestScorePct}%`} />
       </div>
+      <p className="mt-2 text-center text-[11px] text-ca-muted">
+        {cloudActive ? "✓ Synced to your account" : "Saved on this device"}
+      </p>
       {weak.length > 0 && (
         <div className="mt-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-ca-muted">

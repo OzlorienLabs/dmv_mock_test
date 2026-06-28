@@ -3,6 +3,8 @@ import { Public_Sans } from "next/font/google";
 import "./globals.css";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
+import { Providers } from "@/components/Providers";
+import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 
 const publicSans = Public_Sans({
   variable: "--font-public-sans",
@@ -14,6 +16,10 @@ export const metadata: Metadata = {
   title: "CA DMV Knowledge Test Practice",
   description:
     "Free mobile-friendly practice for the California Class C Driver's License knowledge test. Unofficial study tool — not affiliated with the California DMV.",
+  manifest: "/manifest.webmanifest",
+  applicationName: "DMV Practice",
+  appleWebApp: { capable: true, title: "DMV Practice", statusBarStyle: "default" },
+  icons: { icon: "/icon.svg", apple: "/icon.svg" },
 };
 
 export const viewport: Viewport = {
@@ -30,11 +36,14 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${publicSans.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
-        <SiteHeader />
-        <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 py-5">
-          {children}
-        </main>
-        <SiteFooter />
+        <Providers>
+          <SiteHeader />
+          <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 py-5">
+            {children}
+          </main>
+          <SiteFooter />
+        </Providers>
+        <ServiceWorkerRegister />
       </body>
     </html>
   );

@@ -10,7 +10,7 @@ and (coming soon) AI audio explanations in multiple languages.
 > actual exam. Always verify rules in the
 > [official California Driver Handbook](https://www.dmv.ca.gov/portal/handbook/california-driver-handbook/).
 
-## Status — Phase 1 (playable test engine)
+## Status — Phases 1–5 (engine, 1,000+ bank, accounts & sync, AI audio, road test)
 
 Implemented:
 
@@ -28,11 +28,18 @@ Implemented:
   curb parking, sign shapes, etc.).
 - **Results & review** with pass/fail banner, per-topic breakdown, and a full
   answer review with explanations.
-- **Guest progress** stored on-device (localStorage today; IndexedDB/Firestore
-  sync planned).
-- **"Explain in Audio"** control — browser speech preview today; Gemini + Cloud
-  TTS multilingual audio (English, Bengali, Hindi, Spanish + custom) in Phase 4.
-- **Road-test (DL-80) study guide** starter page.
+- **Accounts & cross-device sync** — optional Firebase Auth (Google +
+  email/password); guest progress is stored on-device and **migrated to
+  Firestore** on sign-in. The app works fully as a guest with **no Firebase
+  configured**. Firestore security rules are owner-only and verified by an
+  emulator test (`npm run test:rules`). See [FIREBASE_SETUP.md](FIREBASE_SETUP.md).
+- **"Explain in Audio"** — cached multilingual explanations (English, Bengali,
+  Hindi, Spanish) served free + spoken in-browser, **bring-your-own Gemini key**
+  for any other language (key encrypted server-side, per-user daily cap), and a
+  browser-speech fallback that always works. See [AUDIO_SETUP.md](AUDIO_SETUP.md).
+- **Road-test (DL-80) module** — interactive coaching guide: vehicle pre-check,
+  per-maneuver "what the examiner looks for" vs "common mistakes", automatic-fail
+  list, and a self-assessment with a readiness meter (saved on-device).
 - **California design-system styling** (Public Sans, CA blue/gold) and a clear
   non-affiliation disclaimer.
 
@@ -43,7 +50,8 @@ the project plan file.
 ## Tech stack
 
 Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4 ·
-Vitest + Testing Library · Playwright.
+Firebase Auth + Firestore (optional) · Vitest + Testing Library · Playwright ·
+Firebase Emulator Suite (rules tests).
 
 ## Develop
 

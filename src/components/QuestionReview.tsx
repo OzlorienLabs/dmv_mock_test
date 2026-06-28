@@ -66,7 +66,9 @@ export function QuestionReview({
         </p>
       )}
 
-      {question.explanation && <AudioExplain text={`${question.prompt} ${question.explanation}`} />}
+      {question.explanation && (
+        <AudioExplain questionId={question.id} fallbackText={question.explanation} />
+      )}
 
       <div className="mt-3">
         <OriginBadge q={question} />

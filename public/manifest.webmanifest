@@ -1,0 +1,19 @@
+{
+  "name": "CA DMV Knowledge Test Practice",
+  "short_name": "DMV Practice",
+  "description": "Practice for the California Class C driver's license knowledge test. Unofficial study tool.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#eef1f4",
+  "theme_color": "#046b99",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

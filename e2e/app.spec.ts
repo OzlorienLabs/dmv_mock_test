@@ -48,3 +48,14 @@ test("complete a quick practice test, see results and progress", async ({
   await page.getByRole("link", { name: "Home" }).click();
   await expect(page.getByText("Tests", { exact: true })).toBeVisible();
 });
+
+test("road-test guide: rating a maneuver updates readiness", async ({ page }) => {
+  await page.goto("/road-test");
+  await expect(
+    page.getByRole("heading", { name: "Road test (DL-80) guide" }),
+  ).toBeVisible();
+  await expect(page.getByText(/0\/\d+ confident/)).toBeVisible();
+
+  await page.getByRole("button", { name: "Confident" }).first().click();
+  await expect(page.getByText(/1\/\d+ confident/)).toBeVisible();
+});

@@ -11,7 +11,7 @@ import {
   type AttemptResult,
 } from "@/lib/engine";
 import { getProfile, type TestProfileId } from "@/lib/engine/profiles";
-import { saveAttempt } from "@/lib/progress/store";
+import { useProgress } from "@/lib/progress/provider";
 import { CATEGORY_MAP, type Question } from "@/lib/types";
 import { Diagram, hasDiagram } from "./Diagram";
 import { AudioExplain } from "./AudioExplain";
@@ -39,6 +39,7 @@ export function TestRunner({
     [targetCount],
   );
 
+  const { recordAttempt } = useProgress();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, number | null>>({});
   const [current, setCurrent] = useState(0);
@@ -58,10 +59,10 @@ export function TestRunner({
     return scoreAttempt(questions, answerItems, passCount);
   }, [finished, questions, answers, passCount]);
 
-  // Persist the attempt once when finished.
+  // Persist the attempt once when finished (local always; cloud if signed in).
   useEffect(() => {
     if (!finished || !result) return;
-    saveAttempt({
+    void recordAttempt({
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       profileId,
       dateISO: new Date().toISOString(),
@@ -182,7 +183,7 @@ export function TestRunner({
               </span>
               {q.explanation}
             </p>
-            <AudioExplain text={`${q.prompt} ${q.explanation}`} />
+            <AudioExplain questionId={q.id} fallbackText={q.explanation} />
           </div>
         )}
 
