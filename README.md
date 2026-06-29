@@ -20,6 +20,11 @@ and AI audio explanations in multiple languages.
 - **Accounts & cross-device sync** — optional Firebase Auth (Google +
   email/password); guest progress migrates to Firestore on sign-in. Works fully
   as a guest with no Firebase configured.
+- **Test history & review** — every completed test is saved with full per-question
+  answer data. The Progress section lists all past tests with scores and
+  pass/fail status; tap "Review" to revisit each question with the correct answer
+  and explanation. Works for both guests (localStorage) and signed-in users
+  (Firestore).
 - **"Explain in Audio"** — cached multilingual explanations (English, Bengali,
   Hindi, Spanish) + **bring-your-own Gemini key** for any other language
   (encrypted server-side, per-user daily cap) + a browser-speech fallback.
@@ -334,14 +339,14 @@ others are server-only and must never be `NEXT_PUBLIC_`.
 
 ```
 src/
-  app/                 # routes: / · /test · /road-test · /settings · /api/{key,explain}
+  app/                 # routes: / · /test · /test/review · /road-test · /settings · /api/{key,explain}
   components/          # SiteHeader, TestRunner, Diagram, AudioExplain, AccountMenu, ...
   data/
     questions/         # provenance-tagged bank (official + generated + authored) + validate
     roadTest.ts        # DL-80 road-test content
   lib/
     engine/            # profiles, sampler, scoring, seedable RNG (+ tests)
-    progress/          # local store + cloud sync provider
+    progress/          # local store + cloud sync provider + test history
     firebase/          # config (env-driven), auth context, App Check
     server/            # crypto, usage caps, admin, genai (route helpers, + tests)
     roadtest/          # self-assessment store (+ tests)

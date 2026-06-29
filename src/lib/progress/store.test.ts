@@ -18,6 +18,10 @@ function attempt(partial: Partial<StoredAttempt> = {}): StoredAttempt {
     passCount: 38,
     passed: true,
     perCategory: { parking: { correct: 3, total: 4 } },
+    answers: [
+      { questionId: "q1", selectedIndex: 0 },
+      { questionId: "q2", selectedIndex: 1 },
+    ],
     ...partial,
   };
 }
@@ -47,5 +51,37 @@ describe("progress store", () => {
     saveAttempt(attempt({ passed: false, correctCount: 20 }));
     expect(getSummary().attempts).toBe(1);
     expect(getSummary().passes).toBe(0);
+  });
+
+  it("persists the answers array in localStorage round-trip", () => {
+    const answers = [
+      { questionId: "q1", selectedIndex: 0 },
+      { questionId: "q2", selectedIndex: null },
+      { questionId: "q3", selectedIndex: 2 },
+    ];
+    saveAttempt(attempt({ id: "with-answers", answers }));
+    const [stored] = getAttempts();
+    expect(stored.answers).toEqual(answers);
+  });
+
+  it("handles legacy attempts without an answers field", () => {
+    // Simulate a pre-answers-era attempt by omitting the field
+    const legacy = attempt({ id: "legacy" });
+    delete (legacy as unknown as Record<string, unknown>).answers;
+    saveAttempt(legacy);
+    const [stored] = getAttempts();
+    expect(stored.answers).toBeUndefined();
+    // Summary still works
+    expect(getSummary().attempts).toBe(1);
+  });
+
+  it("caps stored attempts at 100", () => {
+    for (let i = 0; i < 105; i++) {
+      saveAttempt(attempt({ id: `a-${i}` }));
+    }
+    const all = getAttempts();
+    expect(all.length).toBe(100);
+    // Most recent should be first
+    expect(all[0].id).toBe("a-104");
   });
 });

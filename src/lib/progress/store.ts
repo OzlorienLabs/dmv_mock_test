@@ -19,6 +19,8 @@ export interface StoredAttempt {
   passCount: number;
   passed: boolean;
   perCategory: Partial<Record<CategoryId, CategoryScore>>;
+  /** Per-question answers recorded for later review. Optional for backward compat. */
+  answers?: { questionId: string; selectedIndex: number | null }[];
 }
 
 export interface ProgressSummary {

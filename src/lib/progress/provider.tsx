@@ -12,15 +12,17 @@ import {
 import { useAuth } from "@/lib/firebase/auth";
 import {
   getAttempts,
-  getSummary,
   saveAttempt,
+  summarize,
   type ProgressSummary,
   type StoredAttempt,
 } from "./store";
-import { cloudGetSummary, cloudMigrateLocal, cloudSaveAttempt } from "./cloud";
+import { cloudGetAttempts, cloudMigrateLocal, cloudSaveAttempt } from "./cloud";
 
 interface ProgressContextValue {
   summary: ProgressSummary | null;
+  /** Full list of stored attempts for rendering test history. */
+  attempts: StoredAttempt[];
   loading: boolean;
   /** Whether progress is syncing to the cloud (signed in) vs on-device only. */
   cloudActive: boolean;
@@ -33,6 +35,7 @@ const ProgressContext = createContext<ProgressContextValue | null>(null);
 export function ProgressProvider({ children }: { children: ReactNode }) {
   const { user, enabled } = useAuth();
   const [summary, setSummary] = useState<ProgressSummary | null>(null);
+  const [attempts, setAttempts] = useState<StoredAttempt[]>([]);
   const [loading, setLoading] = useState(true);
   const migratedFor = useRef<string | null>(null);
 
@@ -43,9 +46,13 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     if (cloudActive && uid) {
-      setSummary(await cloudGetSummary(uid));
+      const all = await cloudGetAttempts(uid);
+      setAttempts(all);
+      setSummary(summarize(all));
     } else {
-      setSummary(getSummary());
+      const all = getAttempts();
+      setAttempts(all);
+      setSummary(summarize(all));
     }
   }, [cloudActive, uid]);
 
@@ -59,10 +66,17 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
             await cloudMigrateLocal(uid, getAttempts());
             migratedFor.current = uid;
           }
-          const s = await cloudGetSummary(uid);
-          if (!cancelled) setSummary(s);
+          const all = await cloudGetAttempts(uid);
+          if (!cancelled) {
+            setAttempts(all);
+            setSummary(summarize(all));
+          }
         } else {
-          if (!cancelled) setSummary(getSummary());
+          if (!cancelled) {
+            const all = getAttempts();
+            setAttempts(all);
+            setSummary(summarize(all));
+          }
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -92,7 +106,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
   return (
     <ProgressContext.Provider
-      value={{ summary, loading, cloudActive, recordAttempt, refresh }}
+      value={{ summary, attempts, loading, cloudActive, recordAttempt, refresh }}
     >
       {children}
     </ProgressContext.Provider>

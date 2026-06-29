@@ -88,11 +88,21 @@ export function getFirebaseAuth(): Auth | null {
   const a = ensureApp();
   if (!a) return null;
   if (!authInstance) {
-    authInstance = getAuth(a);
+    try {
+      authInstance = getAuth(a);
+    } catch {
+      // Invalid API key (e.g. emulator mode without emulator running, or
+      // empty/placeholder credentials).  Degrade gracefully to guest mode.
+      return null;
+    }
     if (useEmulator) {
-      connectAuthEmulator(authInstance, "http://127.0.0.1:9099", {
-        disableWarnings: true,
-      });
+      try {
+        connectAuthEmulator(authInstance, "http://127.0.0.1:9099", {
+          disableWarnings: true,
+        });
+      } catch {
+        // Already connected or emulator unreachable — ignore.
+      }
     }
   }
   return authInstance;
@@ -102,10 +112,18 @@ export function getDb(): Firestore | null {
   const a = ensureApp();
   if (!a) return null;
   if (!dbInstance) {
-    dbInstance = getFirestore(a);
+    try {
+      dbInstance = getFirestore(a);
+    } catch {
+      return null;
+    }
     if (useEmulator && !emulatorsWired) {
-      connectFirestoreEmulator(dbInstance, "127.0.0.1", 8080);
-      emulatorsWired = true;
+      try {
+        connectFirestoreEmulator(dbInstance, "127.0.0.1", 8080);
+        emulatorsWired = true;
+      } catch {
+        // Already connected or emulator unreachable — ignore.
+      }
     }
   }
   return dbInstance;

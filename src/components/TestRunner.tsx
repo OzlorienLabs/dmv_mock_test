@@ -71,6 +71,10 @@ export function TestRunner({
       passCount: result.passCount,
       passed: result.passed,
       perCategory: result.perCategory,
+      answers: questions.map((q) => ({
+        questionId: q.id,
+        selectedIndex: answers[q.id] ?? null,
+      })),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished]);
