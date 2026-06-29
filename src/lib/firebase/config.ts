@@ -27,6 +27,7 @@ const config = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.GOOGLE_ANALYTICS_ID,
 };
 
 const useEmulator = process.env.NEXT_PUBLIC_FIREBASE_EMULATOR === "true";
