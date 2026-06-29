@@ -13,7 +13,7 @@ const publicSans = Public_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "CA DMV Knowledge Test Practice",
+  title: "Driver License Test Practice",
   description:
     "Free mobile-friendly practice for the California Class C Driver's License knowledge test. Unofficial study tool — not affiliated with the California DMV.",
   manifest: "/manifest.webmanifest",

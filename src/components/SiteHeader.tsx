@@ -13,7 +13,7 @@ export function SiteHeader() {
             DL
           </span>
           <span className="text-base leading-tight sm:text-lg">
-            CA Knowledge Test Practice
+            Driver License Test Practice
           </span>
         </Link>
         <AccountMenu />
