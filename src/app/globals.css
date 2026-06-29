@@ -23,6 +23,10 @@
   --color-ca-green-bg: #e6f4ea;
   --color-ca-red: #b3261e;
   --color-ca-red-bg: #fbeae9;
+  --color-ca-orange: #e67e22;
+  --color-ca-orange-bg: #fef3e2;
+  --color-ca-purple: #7c3aed;
+  --color-ca-purple-bg: #f3e8ff;
 
   --font-sans: var(--font-public-sans), system-ui, -apple-system, "Segoe UI",
     Roboto, "Helvetica Neue", Arial, sans-serif;
