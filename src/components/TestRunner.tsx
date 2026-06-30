@@ -187,7 +187,7 @@ export function TestRunner({
               </span>
               {q.explanation}
             </p>
-            <AudioExplain questionId={q.id} fallbackText={q.explanation} />
+            <AudioExplain question={q} />
           </div>
         )}
 

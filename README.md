@@ -25,9 +25,12 @@ and AI audio explanations in multiple languages.
   computes a test readiness meter, displays your score trend, and highlights "trouble questions" you
   frequently miss (with in-place review). It also lists all past tests; tap "Review" to revisit
   entire exams. Works for both guests (localStorage) and signed-in users (Firestore).
-- **"Explain in Audio"** — cached multilingual explanations (English, Bengali,
-  Hindi, Spanish) + **bring-your-own Gemini key** for any other language
-  (encrypted server-side, per-user daily cap) + a browser-speech fallback.
+- **Detailed multilingual explanations + offline audio** — every question has a
+  detailed explanation in **English, Bengali, and Spanish**, bundled in the app
+  and read aloud **entirely on-device** (Web Speech API, no server, works
+  offline). English is per-question; BN/ES are topic-level and can be upgraded to
+  per-question with an optional build-time script. Any other language uses a
+  **bring-your-own Gemini key** (encrypted server-side, per-user daily cap).
 - **Road-test (DL-80) module** — interactive coaching with self-assessment.
 - **Installable PWA** (offline support), optional **App Check**, GitHub Actions
   **CI**, and **push-to-deploy** (Firebase App Hosting or Cloud Run).

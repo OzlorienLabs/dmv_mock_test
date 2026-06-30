@@ -1,16 +1,38 @@
 # AI "Explain in Audio" setup
 
-The **Explain in Audio** button works at three levels, so most users need no
-setup:
+## Detailed explanations & offline audio (no setup, no server)
 
-1. **Cached multilingual text** (free, instant) — pre-generated explanations in
-   English, Bengali, Hindi, and Spanish, stored in Firestore `audio/{id}` and
-   spoken with the browser. Requires the owner to run the generation script once.
-2. **On-demand, any language** — generated with the **user's own Gemini key**
-   (server-side), used for the "Other…" language option. Requires the backend
-   env below.
-3. **Browser-speech fallback** — if nothing else is available, the on-device
-   English explanation is read aloud. This always works, even with no Firebase.
+Every question has a **detailed explanation in English, Bengali, and Spanish**
+bundled into the app, and **"Explain in Audio" reads them aloud entirely on the
+device** with the browser's Speech API — **no network or server call**. This
+works offline and for guests.
+
+- **English** is per-question: the correct answer + the question's specific point
+  + localized topic guidance.
+- **Bengali / Spanish** use accurate, fully-translated **topic-level** guidance
+  (`src/data/explanations/categoryTips.ts`) for every question.
+- Audio quality depends on the voices installed on the device/OS (English and
+  Spanish are widely available; Bengali varies). The text always displays even if
+  no matching voice exists.
+
+### Optional: upgrade Bengali/Spanish to per-question (build-time)
+
+Translate each question's English explanation into per-question BN/ES, written to
+`src/data/explanations/{bn,es}.json` (bundled, still read offline at runtime):
+
+```bash
+GEMINI_API_KEY=AIza... npx tsx scripts/translate-explanations.ts        # add --missing / --limit N
+```
+
+The app prefers a per-question translation when present, else the topic-level one.
+
+---
+
+## "Other" languages — bring-your-own Gemini key (server)
+
+Beyond English/Bengali/Spanish, the **"Other…"** option generates an explanation
+in any language with the **user's own Gemini key** (server-side). This is the
+only path that calls the server. Setup below.
 
 ---
 

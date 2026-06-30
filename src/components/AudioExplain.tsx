@@ -1,74 +1,80 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import type { LanguageCode } from "@/lib/types";
+import type { Question } from "@/lib/types";
 import { useAuth } from "@/lib/firebase/auth";
 import { getAppCheckToken } from "@/lib/firebase/config";
-import { getCachedExplanations } from "@/lib/audio/cache";
-
-const LANGS: { code: LanguageCode; label: string; bcp47: string }[] = [
-  { code: "en", label: "English", bcp47: "en-US" },
-  { code: "bn", label: "Bengali", bcp47: "bn-IN" },
-  { code: "hi", label: "Hindi", bcp47: "hi-IN" },
-  { code: "es", label: "Spanish", bcp47: "es-ES" },
-];
+import {
+  DETAIL_LANGS,
+  DETAIL_LANG_BCP47,
+  DETAIL_LANG_LABEL,
+  getDetailedExplanation,
+  isDetailLang,
+  type DetailLang,
+} from "@/lib/explanations/detailed";
 
 /**
  * "Explain in Audio".
  *
- * Resolution order for the spoken text:
- *   1. Pre-generated cached text for the chosen language (free, instant).
- *   2. On-demand generation via the user's Gemini key (sign-in + key required) —
- *      used for custom ("other") languages or when nothing is cached.
- *   3. The on-device English explanation (always available).
- * The text is then spoken with the browser Speech API.
+ * English, Bengali, and Spanish are fully offline: the detailed explanation is
+ * bundled in the app and spoken with the browser's Speech API — no network or
+ * server call. Any other language uses on-demand generation with the user's own
+ * Gemini key (sign-in + key required).
  */
-export function AudioExplain({
-  questionId,
-  fallbackText,
-}: {
-  questionId: string;
-  fallbackText: string;
-}) {
+export function AudioExplain({ question }: { question: Question }) {
   const { user, enabled } = useAuth();
-  const [lang, setLang] = useState<LanguageCode | "other">("en");
+  const [lang, setLang] = useState<DetailLang | "other">("en");
   const [custom, setCustom] = useState("");
   const [speaking, setSpeaking] = useState(false);
   const [supported, setSupported] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [shownText, setShownText] = useState<string | null>(null);
+  const [fetchedText, setFetchedText] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
-  const cacheRef = useRef<Awaited<ReturnType<typeof getCachedExplanations>>>(null);
-  const cacheLoaded = useRef(false);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   useEffect(() => {
-    setSupported(typeof window !== "undefined" && "speechSynthesis" in window);
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      setSupported(false);
+      return;
+    }
+    const load = () => setVoices(window.speechSynthesis.getVoices());
+    load();
+    window.speechSynthesis.addEventListener("voiceschanged", load);
     return () => {
-      if (typeof window !== "undefined" && "speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-      }
+      window.speechSynthesis.removeEventListener("voiceschanged", load);
+      window.speechSynthesis.cancel();
     };
   }, []);
+
+  const displayText = useMemo(() => {
+    if (lang === "other") return fetchedText ?? "";
+    return getDetailedExplanation(lang, question);
+  }, [lang, question, fetchedText]);
+
+  function pickVoice(bcp47: string): SpeechSynthesisVoice | undefined {
+    const lower = bcp47.toLowerCase();
+    const short = lower.split("-")[0];
+    return (
+      voices.find((v) => v.lang.toLowerCase() === lower) ||
+      voices.find((v) => v.lang.toLowerCase().replace("_", "-").startsWith(short))
+    );
+  }
 
   function speak(text: string, bcp47?: string) {
     if (!supported || !text) return;
     const u = new SpeechSynthesisUtterance(text);
-    if (bcp47) u.lang = bcp47;
+    if (bcp47) {
+      u.lang = bcp47;
+      const v = pickVoice(bcp47);
+      if (v) u.voice = v;
+    }
     u.rate = 0.95;
     u.onend = () => setSpeaking(false);
     u.onerror = () => setSpeaking(false);
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(u);
     setSpeaking(true);
-  }
-
-  async function ensureCache() {
-    if (!cacheLoaded.current) {
-      cacheRef.current = await getCachedExplanations(questionId);
-      cacheLoaded.current = true;
-    }
-    return cacheRef.current;
   }
 
   async function generateViaKey(languageLabel: string): Promise<string | null> {
@@ -85,7 +91,7 @@ export function AudioExplain({
         Authorization: `Bearer ${token}`,
         ...(appCheck ? { "X-Firebase-AppCheck": appCheck } : {}),
       },
-      body: JSON.stringify({ questionId, language: languageLabel }),
+      body: JSON.stringify({ questionId: question.id, language: languageLabel }),
     });
     const data = await res.json().catch(() => ({}));
     if (res.ok) return data.text as string;
@@ -94,6 +100,7 @@ export function AudioExplain({
       no_key: "Add your Gemini key in Settings to use this language.",
       daily_limit: `Daily limit reached (${data.limit ?? ""}). Try again tomorrow.`,
       unauthorized: "Please sign in.",
+      app_check: "Could not verify the app. Please reload and try again.",
       ai_error: "Couldn’t generate — check your key and quota.",
     };
     setNote(map[data.error] ?? "Couldn’t generate the explanation.");
@@ -107,42 +114,28 @@ export function AudioExplain({
       return;
     }
     setNote(null);
+
+    if (lang !== "other") {
+      const bcp47 = DETAIL_LANG_BCP47[lang];
+      speak(getDetailedExplanation(lang, question), bcp47);
+      if (lang !== "en" && supported && !pickVoice(bcp47)) {
+        setNote(
+          `Your device may not have a ${DETAIL_LANG_LABEL[lang]} voice installed — the text is shown above.`,
+        );
+      }
+      return;
+    }
+
+    const label = custom.trim();
+    if (!label) {
+      setNote("Type a language name first.");
+      return;
+    }
     setBusy(true);
     try {
-      if (lang !== "other") {
-        const cached = await ensureCache();
-        const cachedText = cached?.[lang];
-        const bcp47 = LANGS.find((l) => l.code === lang)?.bcp47;
-        if (cachedText) {
-          setShownText(cachedText);
-          speak(cachedText, bcp47);
-          return;
-        }
-        if (lang === "en") {
-          setShownText(fallbackText);
-          speak(fallbackText, "en-US");
-          return;
-        }
-        // Non-English, nothing cached → on-demand via key.
-        const label = LANGS.find((l) => l.code === lang)?.label ?? "English";
-        const text = await generateViaKey(label);
-        if (text) {
-          setShownText(text);
-          speak(text, bcp47);
-        } else {
-          speak(fallbackText, "en-US"); // fall back to English audio
-        }
-        return;
-      }
-      // Custom "other" language → always on-demand via key.
-      const label = custom.trim();
-      if (!label) {
-        setNote("Type a language name first.");
-        return;
-      }
       const text = await generateViaKey(label);
       if (text) {
-        setShownText(text);
+        setFetchedText(text);
         speak(text);
       }
     } finally {
@@ -162,18 +155,22 @@ export function AudioExplain({
           <span aria-hidden>{speaking ? "⏹" : busy ? "…" : "🔊"}</span>
           {speaking ? "Stop" : "Explain in Audio"}
         </button>
-        <label className="sr-only" htmlFor={`lang-${questionId}`}>
+        <label className="sr-only" htmlFor={`lang-${question.id}`}>
           Explanation language
         </label>
         <select
-          id={`lang-${questionId}`}
+          id={`lang-${question.id}`}
           value={lang}
-          onChange={(e) => setLang(e.target.value as LanguageCode | "other")}
+          onChange={(e) => {
+            const v = e.target.value;
+            setLang(isDetailLang(v) ? v : "other");
+            setNote(null);
+          }}
           className="rounded-md border border-ca-line bg-white px-2 py-2 text-sm"
         >
-          {LANGS.map((l) => (
-            <option key={l.code} value={l.code}>
-              {l.label}
+          {DETAIL_LANGS.map((l) => (
+            <option key={l} value={l}>
+              {DETAIL_LANG_LABEL[l]}
             </option>
           ))}
           <option value="other">Other…</option>
@@ -182,13 +179,18 @@ export function AudioExplain({
           <input
             value={custom}
             onChange={(e) => setCustom(e.target.value)}
-            placeholder="Language (e.g. Tamil)"
+            placeholder="Language (e.g. Tagalog)"
             className="rounded-md border border-ca-line bg-white px-2 py-2 text-sm"
           />
         )}
       </div>
 
-      {shownText && <p className="mt-2 text-sm text-ca-gray">{shownText}</p>}
+      {displayText && (
+        <p className="mt-2 whitespace-pre-line text-sm text-ca-gray">{displayText}</p>
+      )}
+      {lang !== "other" && (
+        <p className="mt-1 text-[11px] text-ca-muted">Reads aloud on your device — works offline.</p>
+      )}
       {note && (
         <p className="mt-2 text-xs text-ca-muted">
           {note}{" "}
@@ -201,7 +203,7 @@ export function AudioExplain({
       )}
       {!supported && (
         <p className="mt-2 text-xs text-ca-muted">
-          Audio isn’t supported in this browser.
+          Audio isn’t supported in this browser, but the text is shown above.
         </p>
       )}
     </div>
