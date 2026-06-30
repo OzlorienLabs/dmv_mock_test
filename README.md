@@ -1,5 +1,7 @@
 # CA DMV Knowledge Test Practice
 
+Release v1.0.0
+
 A free, mobile-first web app to study and take **mock California DMV Class C
 Driver's License knowledge tests** — styled after the real DMV experience, with
 exam-accurate pass rules, progress tracking, per-question explanations, diagrams,
