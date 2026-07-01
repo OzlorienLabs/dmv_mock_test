@@ -1,6 +1,6 @@
 import type { Question } from "@/lib/types";
 import { getDetailedExplanation } from "@/lib/explanations/detailed";
-import { Diagram, hasDiagram } from "./Diagram";
+import { Diagram, resolveDiagramId } from "./Diagram";
 import { AudioExplain } from "./AudioExplain";
 import { OriginBadge } from "./OriginBadge";
 
@@ -15,6 +15,7 @@ export function QuestionReview({
   number: number;
 }) {
   const correct = selectedIndex === question.correctIndex;
+  const diagramId = resolveDiagramId(question);
   return (
     <li className="rounded-lg border border-ca-line bg-white p-4">
       <div className="flex items-start justify-between gap-3">
@@ -30,9 +31,9 @@ export function QuestionReview({
         </span>
       </div>
 
-      {hasDiagram(question.diagramId) && (
+      {diagramId && (
         <div className="mt-3 max-w-xs">
-          <Diagram id={question.diagramId as string} />
+          <Diagram id={diagramId} />
         </div>
       )}
 

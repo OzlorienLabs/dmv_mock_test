@@ -15,7 +15,7 @@ import { useProgress } from "@/lib/progress/provider";
 import { questionStats } from "@/lib/progress/store";
 import { getDetailedExplanation } from "@/lib/explanations/detailed";
 import { CATEGORY_MAP, type Question } from "@/lib/types";
-import { Diagram, hasDiagram } from "./Diagram";
+import { Diagram, resolveDiagramId } from "./Diagram";
 import { AudioExplain } from "./AudioExplain";
 import { OriginBadge } from "./OriginBadge";
 import { QuestionReview } from "./QuestionReview";
@@ -157,11 +157,14 @@ export function TestRunner({
         </p>
         <h2 className="mt-1 text-lg font-semibold text-ca-ink">{q.prompt}</h2>
 
-        {hasDiagram(q.diagramId) && (
-          <div className="mt-3 max-w-xs">
-            <Diagram id={q.diagramId as string} />
-          </div>
-        )}
+        {(() => {
+          const diagramId = resolveDiagramId(q);
+          return diagramId ? (
+            <div className="mt-3 max-w-xs">
+              <Diagram id={diagramId} />
+            </div>
+          ) : null;
+        })()}
 
         <ul className="mt-4 space-y-2">
           {q.options.map((opt, i) => {
