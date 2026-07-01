@@ -19,6 +19,10 @@ and AI audio explanations in multiple languages.
 - **1,000+ questions** across all 16 topics (38 verbatim official DMV sample
   questions + ~970 generated/authored), provenance-tagged, behind a validation
   gate. Curated inline-SVG diagrams. Results & review with per-topic breakdown.
+- **Adaptive question selection** — each test prioritizes questions you haven't
+  yet answered correctly at least twice (never-seen, never-correct, or recently
+  missed), based on your attempt history (on-device or synced), while keeping
+  exam-like topic coverage. Every answer's correctness is recorded per question.
 - **Accounts & cross-device sync** — optional Firebase Auth (Google +
   email/password); guest progress migrates to Firestore on sign-in. Works fully
   as a guest with no Firebase configured.

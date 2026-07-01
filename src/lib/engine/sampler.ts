@@ -109,3 +109,97 @@ export function buildMockTest(
 
   return shuffle(chosen, rng).map((q) => shuffleOptions(q, rng));
 }
+
+/** Per-question performance summary used for adaptive selection. */
+export interface QuestionStat {
+  seen: number;
+  correct: number;
+  lastCorrect: boolean;
+}
+
+/** A question is considered "mastered" once answered correctly this many times. */
+export const MASTERY_TARGET = 2;
+
+/**
+ * Selection weight for a question given the learner's history. Higher = more
+ * likely to be asked. Unseen and never-correct questions are prioritized;
+ * mastered questions are rarely repeated (a little more if recently missed).
+ */
+export function questionWeight(stat: QuestionStat | undefined): number {
+  if (!stat || stat.seen === 0) return 4; // unseen
+  if (stat.correct === 0) return 6; // seen but never correct
+  if (stat.correct < MASTERY_TARGET) return stat.lastCorrect ? 3 : 4; // still learning
+  return stat.lastCorrect ? 1 : 2.5; // mastered (slipped recently → revisit a little)
+}
+
+/** Sample up to `n` distinct items by weight, without replacement. */
+function weightedSampleN<T>(
+  items: readonly T[],
+  n: number,
+  rng: RNG,
+  weightOf: (item: T) => number,
+): T[] {
+  const pool = items.slice();
+  const weights = pool.map((it) => Math.max(0.0001, weightOf(it)));
+  const out: T[] = [];
+  while (out.length < n && pool.length > 0) {
+    const total = weights.reduce((s, w) => s + w, 0);
+    let r = rng() * total;
+    let idx = 0;
+    while (idx < pool.length - 1 && (r -= weights[idx]) > 0) idx += 1;
+    out.push(pool[idx]);
+    pool.splice(idx, 1);
+    weights.splice(idx, 1);
+  }
+  return out;
+}
+
+/**
+ * Like {@link buildMockTest}, but biases selection toward questions the learner
+ * has not yet mastered (never seen, never answered correctly, or recently
+ * missed) based on their history, while keeping exam-like category coverage.
+ */
+export function buildAdaptiveMockTest(
+  pool: readonly Question[],
+  count: number,
+  rng: RNG,
+  stats: Record<string, QuestionStat>,
+): Question[] {
+  const weightOf = (q: Question) => questionWeight(stats[q.id]);
+  if (pool.length <= count) {
+    return shuffle(pool, rng).map((q) => shuffleOptions(q, rng));
+  }
+
+  const byCategory = new Map<CategoryId, Question[]>();
+  for (const q of pool) {
+    const list = byCategory.get(q.category) ?? [];
+    list.push(q);
+    byCategory.set(q.category, list);
+  }
+
+  const presentWeights = CATEGORIES.filter((c) => byCategory.has(c.id)).map(
+    (c) => ({ id: c.id, weight: c.weight }),
+  );
+  const targets = allocateByWeight(count, presentWeights);
+
+  const chosen: Question[] = [];
+  const chosenIds = new Set<string>();
+  for (const { id } of presentWeights) {
+    const picks = weightedSampleN(byCategory.get(id) ?? [], targets[id], rng, weightOf);
+    for (const q of picks) {
+      chosen.push(q);
+      chosenIds.add(q.id);
+    }
+  }
+
+  if (chosen.length < count) {
+    const remainder = pool.filter((q) => !chosenIds.has(q.id));
+    const fill = weightedSampleN(remainder, count - chosen.length, rng, weightOf);
+    for (const q of fill) {
+      chosen.push(q);
+      chosenIds.add(q.id);
+    }
+  }
+
+  return shuffle(chosen, rng).map((q) => shuffleOptions(q, rng));
+}

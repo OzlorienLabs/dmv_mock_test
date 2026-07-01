@@ -1,4 +1,5 @@
 import type { Question } from "@/lib/types";
+import { getDetailedExplanation } from "@/lib/explanations/detailed";
 import { Diagram, hasDiagram } from "./Diagram";
 import { AudioExplain } from "./AudioExplain";
 import { OriginBadge } from "./OriginBadge";
@@ -59,12 +60,10 @@ export function QuestionReview({
         })}
       </ul>
 
-      {question.explanation && (
-        <p className="mt-3 text-sm text-ca-gray">
-          <span className="font-semibold">Why: </span>
-          {question.explanation}
-        </p>
-      )}
+      <p className="mt-3 whitespace-pre-line text-sm text-ca-gray">
+        <span className="font-semibold">Why: </span>
+        {getDetailedExplanation("en", question)}
+      </p>
 
       <AudioExplain question={question} />
 

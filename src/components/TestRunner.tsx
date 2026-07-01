@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { QUESTIONS } from "@/data/questions";
 import {
-  buildMockTest,
+  buildAdaptiveMockTest,
   mulberry32,
   randomSeed,
   scoreAttempt,
@@ -12,6 +12,8 @@ import {
 } from "@/lib/engine";
 import { getProfile, type TestProfileId } from "@/lib/engine/profiles";
 import { useProgress } from "@/lib/progress/provider";
+import { questionStats } from "@/lib/progress/store";
+import { getDetailedExplanation } from "@/lib/explanations/detailed";
 import { CATEGORY_MAP, type Question } from "@/lib/types";
 import { Diagram, hasDiagram } from "./Diagram";
 import { AudioExplain } from "./AudioExplain";
@@ -34,21 +36,32 @@ export function TestRunner({
   const passCount =
     mode === "practice" ? Math.ceil(targetCount * 0.83) : profile.passCount;
 
-  const buildTest = useCallback(
-    () => buildMockTest(QUESTIONS, targetCount, mulberry32(randomSeed())),
-    [targetCount],
-  );
-
-  const { recordAttempt } = useProgress();
+  const { recordAttempt, attempts, loading } = useProgress();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, number | null>>({});
   const [current, setCurrent] = useState(0);
   const [finished, setFinished] = useState(false);
+  const builtRef = useRef(false);
+  const adaptive = attempts.length > 0;
 
-  // Build the test on the client only, to avoid SSR/CSR randomness mismatch.
+  const buildTest = useCallback(
+    () =>
+      buildAdaptiveMockTest(
+        QUESTIONS,
+        targetCount,
+        mulberry32(randomSeed()),
+        questionStats(attempts),
+      ),
+    [targetCount, attempts],
+  );
+
+  // Build once the learner's history has loaded (client-only) so selection can
+  // focus on questions they haven't mastered yet. Avoids SSR/CSR mismatch.
   useEffect(() => {
+    if (builtRef.current || loading) return;
+    builtRef.current = true;
     setQuestions(buildTest());
-  }, [buildTest]);
+  }, [loading, buildTest]);
 
   const result: AttemptResult | null = useMemo(() => {
     if (!finished || questions.length === 0) return null;
@@ -71,9 +84,10 @@ export function TestRunner({
       passCount: result.passCount,
       passed: result.passed,
       perCategory: result.perCategory,
-      answers: questions.map((q) => ({
-        questionId: q.id,
-        selectedIndex: answers[q.id] ?? null,
+      answers: result.items.map((it) => ({
+        questionId: it.questionId,
+        selectedIndex: it.selectedIndex,
+        correct: it.correct,
       })),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -129,6 +143,11 @@ export function TestRunner({
             style={{ width: `${((current + 1) / questions.length) * 100}%` }}
           />
         </div>
+        {adaptive && (
+          <p className="mt-1.5 text-xs text-ca-blue">
+            ★ Focusing on questions you haven’t mastered yet.
+          </p>
+        )}
       </div>
 
       {/* Question card */}
@@ -179,13 +198,13 @@ export function TestRunner({
           })}
         </ul>
 
-        {revealed && q.explanation && (
+        {revealed && (
           <div className="mt-4">
-            <p className="text-sm text-ca-gray">
+            <p className="whitespace-pre-line text-sm text-ca-gray">
               <span className="font-semibold">
                 {selected === q.correctIndex ? "Correct. " : "Not quite. "}
               </span>
-              {q.explanation}
+              {getDetailedExplanation("en", q)}
             </p>
             <AudioExplain question={q} />
           </div>

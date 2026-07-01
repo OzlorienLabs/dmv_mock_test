@@ -1,13 +1,15 @@
 import type { Question } from "@/lib/types";
 import { CATEGORY_TIPS } from "@/data/explanations/categoryTips";
+import enOverrides from "@/data/explanations/en.json";
 import bnOverrides from "@/data/explanations/bn.json";
 import esOverrides from "@/data/explanations/es.json";
 
-// Optional per-question translations. Empty by default; fill them by running
-// `scripts/translate-explanations.ts` (build-time, owner Gemini key). When an
-// entry exists it overrides the topic-level Bengali/Spanish explanation.
+// Optional per-question explanations. Empty by default; fill them by running
+// `scripts/generate-detailed.ts` (English) and `scripts/translate-explanations.ts`
+// (Bengali/Spanish) — both build-time with an owner Gemini key. When an entry
+// exists it overrides the composed/topic-level text.
 const OVERRIDES: Record<DetailLang, Record<string, string>> = {
-  en: {},
+  en: enOverrides as Record<string, string>,
   bn: bnOverrides as Record<string, string>,
   es: esOverrides as Record<string, string>,
 };
@@ -45,6 +47,8 @@ export function isDetailLang(value: string): value is DetailLang {
 export function getDetailedExplanation(lang: DetailLang, q: Question): string {
   const tip = CATEGORY_TIPS[q.category]?.[lang] ?? "";
   if (lang === "en") {
+    const override = OVERRIDES.en[q.id];
+    if (override) return override;
     const correct = q.options[q.correctIndex];
     const base = q.explanation?.trim() ? ` ${q.explanation.trim()}` : "";
     return `The correct answer is “${correct}.”${base}\n\n${tip}`.trim();

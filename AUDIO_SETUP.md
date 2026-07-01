@@ -15,16 +15,22 @@ works offline and for guests.
   Spanish are widely available; Bengali varies). The text always displays even if
   no matching voice exists.
 
-### Optional: upgrade Bengali/Spanish to per-question (build-time)
+### Optional: per-question explanations (build-time, owner Gemini key)
 
-Translate each question's English explanation into per-question BN/ES, written to
-`src/data/explanations/{bn,es}.json` (bundled, still read offline at runtime):
+By default English is composed per-question (answer + the question's point +
+topic guidance) and Bengali/Spanish are topic-level. To make them all richer and
+fully per-question, run these once — they write bundled JSON read offline at
+runtime, and the app prefers them when present:
 
 ```bash
-GEMINI_API_KEY=AIza... npx tsx scripts/translate-explanations.ts        # add --missing / --limit N
+# Detailed, question-specific English for every question (or just scenarios):
+GEMINI_API_KEY=AIza... npx tsx scripts/generate-detailed.ts            # add --scenarios-only / --missing / --limit N
+
+# Per-question Bengali & Spanish (translates the English above):
+GEMINI_API_KEY=AIza... npx tsx scripts/translate-explanations.ts       # add --missing / --limit N
 ```
 
-The app prefers a per-question translation when present, else the topic-level one.
+Output: `src/data/explanations/{en,bn,es}.json`. Rebuild to bundle them.
 
 ---
 

@@ -32,7 +32,13 @@ const onlyMissing = process.argv.includes("--missing");
 const limIdx = process.argv.indexOf("--limit");
 const limit = limIdx > -1 ? Number(process.argv[limIdx + 1]) : Infinity;
 
+const EN_PATH = "src/data/explanations/en.json";
+const enOverrides: Record<string, string> = existsSync(EN_PATH)
+  ? JSON.parse(readFileSync(EN_PATH, "utf8"))
+  : {};
+
 function englishDetailed(q: (typeof QUESTIONS)[number]): string {
+  if (enOverrides[q.id]) return enOverrides[q.id]; // prefer generate-detailed.ts output
   const correct = q.options[q.correctIndex];
   const base = q.explanation ? ` ${q.explanation}` : "";
   return `The correct answer is "${correct}."${base}\n\n${CATEGORY_TIPS[q.category].en}`;

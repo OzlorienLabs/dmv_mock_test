@@ -1,6 +1,7 @@
 import type { CategoryId } from "@/lib/types";
 import type { TestProfileId } from "@/lib/engine/profiles";
 import type { CategoryScore } from "@/lib/engine/scoring";
+import type { QuestionStat } from "@/lib/engine/sampler";
 
 /**
  * Guest progress persistence.
@@ -19,8 +20,13 @@ export interface StoredAttempt {
   passCount: number;
   passed: boolean;
   perCategory: Partial<Record<CategoryId, CategoryScore>>;
-  /** Per-question answers recorded for later review. Optional for backward compat. */
-  answers?: { questionId: string; selectedIndex: number | null }[];
+  /** Per-question answers recorded for review and adaptive selection. */
+  answers?: {
+    questionId: string;
+    selectedIndex: number | null;
+    /** Whether this answer was correct (recorded since the adaptive update). */
+    correct?: boolean;
+  }[];
 }
 
 export interface ProgressSummary {
@@ -91,4 +97,29 @@ export function summarize(attempts: StoredAttempt[]): ProgressSummary {
 
 export function getSummary(): ProgressSummary {
   return summarize(getAttempts());
+}
+
+/**
+ * Aggregate per-question performance from attempt history, used to drive
+ * adaptive question selection (focus on questions not yet mastered). Attempts
+ * are stored most-recent-first; we iterate oldest→newest so `lastCorrect`
+ * reflects the most recent result.
+ */
+export function questionStats(
+  attempts: StoredAttempt[],
+): Record<string, QuestionStat> {
+  const stats: Record<string, QuestionStat> = {};
+  for (let i = attempts.length - 1; i >= 0; i--) {
+    const answers = attempts[i].answers;
+    if (!answers) continue;
+    for (const ans of answers) {
+      if (ans.selectedIndex === null || ans.correct === undefined) continue;
+      const s = stats[ans.questionId] ?? { seen: 0, correct: 0, lastCorrect: false };
+      s.seen += 1;
+      if (ans.correct) s.correct += 1;
+      s.lastCorrect = ans.correct === true;
+      stats[ans.questionId] = s;
+    }
+  }
+  return stats;
 }

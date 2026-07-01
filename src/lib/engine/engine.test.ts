@@ -7,7 +7,10 @@ import {
   shuffleOptions,
   allocateByWeight,
   buildMockTest,
+  buildAdaptiveMockTest,
+  questionWeight,
   scoreAttempt,
+  type QuestionStat,
 } from "./index";
 
 /** Build a synthetic pool with `per` questions in each category. */
@@ -27,6 +30,47 @@ function makePool(per: number): Question[] {
   }
   return out;
 }
+
+describe("adaptive selection", () => {
+  it("weights unmastered questions higher than mastered ones", () => {
+    expect(questionWeight(undefined)).toBe(4); // unseen
+    expect(questionWeight({ seen: 1, correct: 0, lastCorrect: false })).toBe(6); // never right
+    expect(questionWeight({ seen: 2, correct: 1, lastCorrect: true })).toBe(3); // learning
+    expect(questionWeight({ seen: 2, correct: 1, lastCorrect: false })).toBe(4);
+    expect(questionWeight({ seen: 3, correct: 3, lastCorrect: true })).toBe(1); // mastered
+    expect(questionWeight({ seen: 3, correct: 3, lastCorrect: false })).toBe(2.5);
+    expect(questionWeight(undefined)).toBeGreaterThan(
+      questionWeight({ seen: 5, correct: 5, lastCorrect: true }),
+    );
+  });
+
+  it("returns the requested count with no repeats", () => {
+    const test = buildAdaptiveMockTest(makePool(6), 46, mulberry32(1), {});
+    expect(test).toHaveLength(46);
+    expect(new Set(test.map((q) => q.id)).size).toBe(46);
+  });
+
+  it("asks not-yet-mastered questions far more often than mastered ones", () => {
+    const pool = makePool(8); // 16 categories * 8 = 128
+    // Mark indices 0-3 of each category as mastered (low weight).
+    const stats: Record<string, QuestionStat> = {};
+    for (const c of CATEGORIES) {
+      for (let i = 0; i < 4; i++) {
+        stats[`${c.id}-${i}`] = { seen: 3, correct: 3, lastCorrect: true };
+      }
+    }
+    let mastered = 0;
+    let weak = 0;
+    for (let s = 1; s <= 40; s++) {
+      for (const q of buildAdaptiveMockTest(pool, 46, mulberry32(s), stats)) {
+        const idx = Number(q.id.split("-").pop());
+        if (idx < 4) mastered += 1;
+        else weak += 1;
+      }
+    }
+    expect(weak).toBeGreaterThan(mastered * 1.5);
+  });
+});
 
 describe("test profiles", () => {
   it("encode the real CA pass rules", () => {

@@ -5,6 +5,7 @@ import {
   clearAttempts,
   summarize,
   getSummary,
+  questionStats,
   type StoredAttempt,
 } from "./store";
 
@@ -83,5 +84,31 @@ describe("progress store", () => {
     expect(all.length).toBe(100);
     // Most recent should be first
     expect(all[0].id).toBe("a-104");
+  });
+});
+
+describe("questionStats (adaptive history)", () => {
+  it("aggregates per-question history with the latest result winning", () => {
+    const attempts: StoredAttempt[] = [
+      // stored most-recent-first
+      attempt({ id: "b", answers: [{ questionId: "q1", selectedIndex: 0, correct: true }] }),
+      attempt({
+        id: "a",
+        answers: [
+          { questionId: "q1", selectedIndex: 1, correct: false },
+          { questionId: "q2", selectedIndex: 0, correct: true },
+        ],
+      }),
+    ];
+    const stats = questionStats(attempts);
+    expect(stats.q1).toEqual({ seen: 2, correct: 1, lastCorrect: true });
+    expect(stats.q2).toEqual({ seen: 1, correct: 1, lastCorrect: true });
+  });
+
+  it("ignores answers without recorded correctness (legacy attempts)", () => {
+    const stats = questionStats([
+      attempt({ id: "x", answers: [{ questionId: "q9", selectedIndex: 0 }] }),
+    ]);
+    expect(stats.q9).toBeUndefined();
   });
 });
