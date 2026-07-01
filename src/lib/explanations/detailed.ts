@@ -1,5 +1,6 @@
 import type { Question } from "@/lib/types";
 import { CATEGORY_TIPS } from "@/data/explanations/categoryTips";
+import { conceptTipFor } from "@/data/explanations/conceptTips";
 import enOverrides from "@/data/explanations/en.json";
 import bnOverrides from "@/data/explanations/bn.json";
 import esOverrides from "@/data/explanations/es.json";
@@ -45,14 +46,18 @@ export function isDetailLang(value: string): value is DetailLang {
 }
 
 export function getDetailedExplanation(lang: DetailLang, q: Question): string {
-  const tip = CATEGORY_TIPS[q.category]?.[lang] ?? "";
+  // Per-question generated/translated text wins when present.
+  const override = OVERRIDES[lang][q.id];
+  if (override) return override;
+
+  // Otherwise use the concept tip matched to this question, or the category tip.
+  const concept = conceptTipFor(q.prompt);
+  const tip = (concept?.[lang] ?? CATEGORY_TIPS[q.category]?.[lang] ?? "").trim();
+
   if (lang === "en") {
-    const override = OVERRIDES.en[q.id];
-    if (override) return override;
     const correct = q.options[q.correctIndex];
     const base = q.explanation?.trim() ? ` ${q.explanation.trim()}` : "";
     return `The correct answer is “${correct}.”${base}\n\n${tip}`.trim();
   }
-  // bn/es: per-question translation if generated, else localized topic guidance.
-  return OVERRIDES[lang][q.id] ?? tip;
+  return tip;
 }

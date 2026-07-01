@@ -1,43 +1,63 @@
 import { describe, it, expect } from "vitest";
 import { CATEGORIES, type Question } from "@/lib/types";
 import { CATEGORY_TIPS } from "@/data/explanations/categoryTips";
-import {
-  DETAIL_LANGS,
-  getDetailedExplanation,
-  isDetailLang,
-} from "./detailed";
+import { CONCEPT_TIPS, conceptTipFor } from "@/data/explanations/conceptTips";
+import { DETAIL_LANGS, getDetailedExplanation, isDetailLang } from "./detailed";
 
-const sample: Question = {
-  id: "x",
-  category: "parking",
-  prompt: "A red curb means?",
-  options: ["No stopping", "Loading", "Disabled"],
-  correctIndex: 0,
-  explanation: "Red curbs mean no stopping at any time.",
-  origin: "generated",
-};
+function q(partial: Partial<Question>): Question {
+  return {
+    id: "x",
+    category: "licensing-misc",
+    prompt: "p",
+    options: ["a", "b", "c"],
+    correctIndex: 0,
+    origin: "generated",
+    ...partial,
+  };
+}
 
 describe("detailed explanations", () => {
-  it("has a non-empty tip for every category in all three languages", () => {
+  it("has non-empty category tips in all three languages", () => {
     for (const c of CATEGORIES) {
-      const tip = CATEGORY_TIPS[c.id];
-      expect(tip, `missing tips for ${c.id}`).toBeTruthy();
       for (const lang of DETAIL_LANGS) {
-        expect(tip[lang].trim().length, `${c.id}/${lang}`).toBeGreaterThan(40);
+        expect(CATEGORY_TIPS[c.id][lang].trim().length, `${c.id}/${lang}`).toBeGreaterThan(40);
       }
     }
   });
 
-  it("English includes the correct answer and the question's point", () => {
-    const en = getDetailedExplanation("en", sample);
-    expect(en).toContain("No stopping");
-    expect(en).toContain("Red curbs mean no stopping");
-    expect(en).toContain(CATEGORY_TIPS.parking.en);
+  it("has non-empty concept tips in all three languages", () => {
+    for (const c of CONCEPT_TIPS) {
+      for (const lang of DETAIL_LANGS) {
+        expect(c[lang].trim().length, `${c.id}/${lang}`).toBeGreaterThan(20);
+      }
+    }
   });
 
-  it("Bengali and Spanish return the localized topic explanation", () => {
-    expect(getDetailedExplanation("bn", sample)).toBe(CATEGORY_TIPS.parking.bn);
-    expect(getDetailedExplanation("es", sample)).toBe(CATEGORY_TIPS.parking.es);
+  it("English includes the correct answer, the point, and a topic tip", () => {
+    const sample = q({
+      prompt: "Which of these is true about your driver license?",
+      options: ["Carry it while driving", "Leave it at home", "Only new drivers carry it"],
+      explanation: "Always carry your license while driving.",
+    });
+    const en = getDetailedExplanation("en", sample);
+    expect(en).toContain("Carry it while driving");
+    expect(en).toContain("Always carry your license");
+    // No concept keyword in the prompt → falls back to the category tip.
+    expect(en).toContain(CATEGORY_TIPS["licensing-misc"].en);
+  });
+
+  it("uses the matching concept tip when the prompt mentions a concept", () => {
+    expect(conceptTipFor("What does a red curb mean?")?.id).toBe("curb-colors");
+    const curb = CONCEPT_TIPS.find((c) => c.id === "curb-colors")!;
+    const sample = q({
+      category: "parking",
+      prompt: "What does a red curb mean?",
+      options: ["No stopping", "Loading", "Disabled parking"],
+      explanation: "Red curbs mean no stopping.",
+    });
+    expect(getDetailedExplanation("bn", sample)).toBe(curb.bn);
+    expect(getDetailedExplanation("es", sample)).toBe(curb.es);
+    expect(getDetailedExplanation("en", sample)).toContain(curb.en);
   });
 
   it("recognizes detail languages", () => {
