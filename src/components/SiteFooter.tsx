@@ -1,3 +1,5 @@
+import { FeedbackLink } from "./FeedbackLink";
+
 export function SiteFooter() {
   return (
     <footer className="mt-8 border-t border-ca-line bg-white">
@@ -19,6 +21,13 @@ export function SiteFooter() {
           </a>
           .
         </p>
+
+        <div className="mt-4 border-t border-ca-line pt-4 text-center text-ca-gray">
+          <p>Built with curiosity and care</p>
+          <p className="mt-0.5">
+            by <FeedbackLink />
+          </p>
+        </div>
       </div>
     </footer>
   );

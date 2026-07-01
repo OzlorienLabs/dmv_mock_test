@@ -59,3 +59,21 @@ test("road-test guide: rating a maneuver updates readiness", async ({ page }) =>
   await page.getByRole("button", { name: "Confident" }).first().click();
   await expect(page.getByText(/1\/\d+ confident/)).toBeVisible();
 });
+
+test("footer feedback modal opens and submits (mailto fallback)", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText("Built with curiosity and care")).toBeVisible();
+
+  await page.getByRole("button", { name: "Ozlorien Labs" }).click();
+  const dialog = page.getByRole("dialog", { name: /Ozlorien Labs/i });
+  await expect(dialog.getByText("Get in touch")).toBeVisible();
+
+  await dialog.getByLabel("Your message").fill("Great app, thanks!");
+  await dialog.getByRole("button", { name: "Send" }).click();
+
+  // With no email backend configured in the test build, it offers the mailto
+  // fallback (a true send + thank-you happens once RESEND_API_KEY is set).
+  await expect(
+    dialog.getByText(/Open email to ozlorienlabs@gmail.com/i),
+  ).toBeVisible();
+});

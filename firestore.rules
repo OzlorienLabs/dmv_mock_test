@@ -37,6 +37,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Feedback submissions: written only by the server (/api/feedback via the
+    // Admin SDK); never readable or writable by clients.
+    match /feedback/{id} {
+      allow read, write: if false;
+    }
+
     // Deny everything else by default.
     match /{document=**} {
       allow read, write: if false;

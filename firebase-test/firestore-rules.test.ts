@@ -95,4 +95,15 @@ describe("firestore security rules", () => {
       setDoc(doc(alice, "users/alice/usage/ai"), { audioCalls: 0 }),
     );
   });
+
+  it("never lets a client read or write feedback submissions", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "feedback/f1"), { message: "hi" });
+    });
+    const anon = env.unauthenticatedContext().firestore();
+    await assertFails(getDoc(doc(anon, "feedback/f1")));
+    await assertFails(setDoc(doc(anon, "feedback/f2"), { message: "spam" }));
+    const alice = env.authenticatedContext("alice").firestore();
+    await assertFails(getDoc(doc(alice, "feedback/f1")));
+  });
 });
