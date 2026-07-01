@@ -2,17 +2,21 @@ import Link from "next/link";
 import { TEST_PROFILES } from "@/lib/engine/profiles";
 import { QUESTIONS } from "@/data/questions";
 import { ProgressPanel } from "@/components/ProgressPanel";
+import { JsonLd } from "@/components/JsonLd";
+import { FAQ, faqJsonLd } from "@/lib/seo";
 
 export default function Home() {
   return (
     <div className="space-y-6">
+      <JsonLd data={faqJsonLd()} />
       <section>
         <h1 className="text-2xl font-extrabold tracking-tight text-ca-ink">
-          🚘 The Ultimate Driving Knowledge Test 🚦
+          🚘 California DMV Practice Test 🚦
         </h1>
         <p className="mt-1 text-sm text-ca-gray">
-          Free, mobile-friendly practice that mirrors the real exam format and
-          pass rules. {QUESTIONS.length} practice questions across every topic.
+          Free, mobile-friendly practice for the California Class C driver&rsquo;s
+          license knowledge test — mirrors the real exam format and pass rules.{" "}
+          {QUESTIONS.length} practice questions across every topic.
         </p>
       </section>
 
@@ -58,6 +62,23 @@ export default function Home() {
           Your progress
         </h2>
         <ProgressPanel />
+      </section>
+
+      <section aria-labelledby="faq-heading">
+        <h2
+          id="faq-heading"
+          className="mb-2 text-sm font-bold uppercase tracking-wide text-ca-muted"
+        >
+          California DMV test — frequently asked questions
+        </h2>
+        <dl className="divide-y divide-ca-line rounded-xl border border-ca-line bg-white">
+          {FAQ.map((f) => (
+            <div key={f.question} className="p-4">
+              <dt className="font-semibold text-ca-ink">{f.question}</dt>
+              <dd className="mt-1 text-sm text-ca-gray">{f.answer}</dd>
+            </div>
+          ))}
+        </dl>
       </section>
     </div>
   );

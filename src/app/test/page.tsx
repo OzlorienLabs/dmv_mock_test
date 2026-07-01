@@ -1,6 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { TestRunner, type RunMode } from "@/components/TestRunner";
 import { TEST_PROFILES, type TestProfileId } from "@/lib/engine/profiles";
+
+export const metadata: Metadata = {
+  title: "Practice Test",
+  description:
+    "Take a full-length California DMV Class C knowledge practice test with instant scoring and per-question explanations.",
+  // Each run is a randomized, session-specific quiz — nothing stable to index.
+  robots: { index: false, follow: true },
+};
 
 export default async function TestPage({
   searchParams,

@@ -1,5 +1,12 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import ReviewContent from "./ReviewContent";
+
+export const metadata: Metadata = {
+  title: "Test Review",
+  // Renders a user's own last-attempt answers — private, not for indexing.
+  robots: { index: false, follow: false },
+};
 
 export default function ReviewPage() {
   return (

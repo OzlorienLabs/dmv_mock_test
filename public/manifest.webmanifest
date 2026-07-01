@@ -1,7 +1,11 @@
 {
+  "id": "/",
   "name": "CA DMV Knowledge Test Practice",
   "short_name": "DMV Practice",
   "description": "Practice for the California Class C driver's license knowledge test. Unofficial study tool.",
+  "lang": "en-US",
+  "dir": "ltr",
+  "categories": ["education", "productivity"],
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
