@@ -8,7 +8,7 @@ export default function Home() {
     <div className="space-y-6">
       <section>
         <h1 className="text-2xl font-extrabold tracking-tight text-ca-ink">
-          Pass the California Class C knowledge test
+          🚘 The Ultimate Driving Knowledge Test 🚦
         </h1>
         <p className="mt-1 text-sm text-ca-gray">
           Free, mobile-friendly practice that mirrors the real exam format and
