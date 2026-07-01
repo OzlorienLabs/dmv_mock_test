@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test("home shows the dashboard", async ({ page }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: /California DMV Practice Test/i }),
+    page.getByRole("heading", { name: /The Ultimate Driving Knowledge Test/i }),
   ).toBeVisible();
   await expect(
     page.getByText(/practice questions across every topic/i),

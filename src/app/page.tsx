@@ -11,7 +11,7 @@ export default function Home() {
       <JsonLd data={faqJsonLd()} />
       <section>
         <h1 className="text-2xl font-extrabold tracking-tight text-ca-ink">
-          🚘 California DMV Practice Test 🚦
+          🚘 The Ultimate Driving Knowledge Test 🚦
         </h1>
         <p className="mt-1 text-sm text-ca-gray">
           Free, mobile-friendly practice for the California Class C driver&rsquo;s
