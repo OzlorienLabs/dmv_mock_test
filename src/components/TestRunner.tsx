@@ -12,7 +12,7 @@ import {
 } from "@/lib/engine";
 import { getProfile, type TestProfileId } from "@/lib/engine/profiles";
 import { useProgress } from "@/lib/progress/provider";
-import { questionStats } from "@/lib/progress/store";
+import { getAttempts, questionStats } from "@/lib/progress/store";
 import { getDetailedExplanation } from "@/lib/explanations/detailed";
 import { CATEGORY_MAP, type Question } from "@/lib/types";
 import { Diagram, resolveDiagramId } from "./Diagram";
@@ -36,16 +36,17 @@ export function TestRunner({
   const passCount =
     mode === "practice" ? Math.ceil(targetCount * 0.83) : profile.passCount;
 
-  const { recordAttempt, attempts, loading } = useProgress();
+  const { recordAttempt } = useProgress();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, number | null>>({});
   const [current, setCurrent] = useState(0);
   const [finished, setFinished] = useState(false);
   // True until the full bank has loaded and the remaining questions are in.
   const [assembling, setAssembling] = useState(true);
+  // Whether selection is focusing on not-yet-mastered questions (set at build).
+  const [focusActive, setFocusActive] = useState(false);
   const startedRef = useRef(false);
   const assembledRef = useRef(false);
-  const adaptive = attempts.length > 0;
   const seedCount = Math.min(2, targetCount);
 
   // A couple of questions from the tiny starter set (bundled), so we can render
@@ -58,24 +59,33 @@ export function TestRunner({
   // Lazy-load the full 1000+ question bank and build the real adaptive test,
   // keeping the already-shown starter questions (and their answers) at the front
   // so nothing the learner sees shifts under them.
+  //
+  // Adaptivity uses the *locally cached* history (synchronous — instant for
+  // guests AND signed-in users), so the test never waits on the Firestore
+  // round-trip. Cloud sync still runs in the background for the progress
+  // dashboard; it simply no longer blocks the test. This gives signed-in users
+  // the same fast load as guests.
   const assembleFull = useCallback(async () => {
     const { QUESTIONS } = await import("@/data/questions");
+    const stats = questionStats(getAttempts());
     const full = buildAdaptiveMockTest(
       QUESTIONS,
       targetCount,
       mulberry32(randomSeed()),
-      questionStats(attempts),
+      stats,
     );
+    setFocusActive(Object.keys(stats).length > 0);
     setQuestions((prev) => {
       const lead = prev.slice(0, seedCount);
       const leadIds = new Set(lead.map((q) => q.id));
       return [...lead, ...full.filter((q) => !leadIds.has(q.id))].slice(0, targetCount);
     });
     setAssembling(false);
-  }, [targetCount, attempts, seedCount]);
+  }, [targetCount, seedCount]);
 
   // Phase 1 (instant, client-only — avoids SSR/CSR mismatch): show the starter
-  // questions. Phase 2: once history has loaded, background-build the full test.
+  // questions. Phase 2 (also immediate): background-build the full test. Neither
+  // phase waits on progress loading, so a signed-in load matches a guest load.
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
@@ -83,10 +93,10 @@ export function TestRunner({
   }, [seedStarter]);
 
   useEffect(() => {
-    if (assembledRef.current || loading) return;
+    if (assembledRef.current) return;
     assembledRef.current = true;
     void assembleFull();
-  }, [loading, assembleFull]);
+  }, [assembleFull]);
 
   const result: AttemptResult | null = useMemo(() => {
     if (!finished || questions.length === 0) return null;
@@ -183,7 +193,7 @@ export function TestRunner({
             />
             Loading your full {total}-question test…
           </p>
-        ) : adaptive ? (
+        ) : focusActive ? (
           <p className="mt-1.5 text-xs text-ca-blue">
             ★ Focusing on questions you haven’t mastered yet.
           </p>
