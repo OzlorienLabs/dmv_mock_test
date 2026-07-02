@@ -75,6 +75,23 @@ export function deleteAttempt(id: string): void {
   window.localStorage.setItem(KEY, JSON.stringify(remaining));
 }
 
+/**
+ * Merge attempt lists, de-duplicating by id (earlier lists win, so pass the
+ * most-authoritative/most-recent source first) and sorting most-recent first.
+ * Used so an optimistic local update is never dropped by a lagging cloud read.
+ */
+export function mergeAttempts(...lists: StoredAttempt[][]): StoredAttempt[] {
+  const byId = new Map<string, StoredAttempt>();
+  for (const list of lists) {
+    for (const a of list) {
+      if (!byId.has(a.id)) byId.set(a.id, a);
+    }
+  }
+  return [...byId.values()].sort((x, y) =>
+    x.dateISO < y.dateISO ? 1 : x.dateISO > y.dateISO ? -1 : 0,
+  );
+}
+
 export function summarize(attempts: StoredAttempt[]): ProgressSummary {
   const perCategory: Partial<Record<CategoryId, CategoryScore>> = {};
   let bestScorePct = 0;

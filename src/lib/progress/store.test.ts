@@ -4,6 +4,7 @@ import {
   getAttempts,
   clearAttempts,
   deleteAttempt,
+  mergeAttempts,
   summarize,
   getSummary,
   questionStats,
@@ -99,6 +100,31 @@ describe("progress store", () => {
     expect(all.length).toBe(100);
     // Most recent should be first
     expect(all[0].id).toBe("a-104");
+  });
+});
+
+describe("mergeAttempts", () => {
+  it("de-duplicates by id (first list wins) and sorts most-recent first", () => {
+    const local = [
+      attempt({ id: "new", dateISO: "2026-03-03T00:00:00.000Z" }),
+      attempt({ id: "shared", dateISO: "2026-01-01T00:00:00.000Z", correctCount: 10 }),
+    ];
+    const cloud = [
+      attempt({ id: "shared", dateISO: "2026-01-01T00:00:00.000Z", correctCount: 99 }),
+      attempt({ id: "other-device", dateISO: "2026-02-02T00:00:00.000Z" }),
+    ];
+    const merged = mergeAttempts(local, cloud);
+    // Union of ids, no dupes.
+    expect(merged.map((a) => a.id)).toEqual(["new", "other-device", "shared"]);
+    // First list wins for the shared id (local copy kept).
+    expect(merged.find((a) => a.id === "shared")?.correctCount).toBe(10);
+  });
+
+  it("never drops a just-saved local attempt behind a lagging cloud list", () => {
+    const justSaved = attempt({ id: "just-saved", dateISO: new Date().toISOString() });
+    const staleCloud = [attempt({ id: "old", dateISO: "2020-01-01T00:00:00.000Z" })];
+    const merged = mergeAttempts([justSaved], staleCloud);
+    expect(merged.some((a) => a.id === "just-saved")).toBe(true);
   });
 });
 
