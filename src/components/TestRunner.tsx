@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { QUESTIONS } from "@/data/questions";
+import { STARTER_QUESTIONS } from "@/data/questions/starter";
 import {
   buildAdaptiveMockTest,
   mulberry32,
@@ -41,27 +41,52 @@ export function TestRunner({
   const [answers, setAnswers] = useState<Record<string, number | null>>({});
   const [current, setCurrent] = useState(0);
   const [finished, setFinished] = useState(false);
-  const builtRef = useRef(false);
+  // True until the full bank has loaded and the remaining questions are in.
+  const [assembling, setAssembling] = useState(true);
+  const startedRef = useRef(false);
+  const assembledRef = useRef(false);
   const adaptive = attempts.length > 0;
+  const seedCount = Math.min(2, targetCount);
 
-  const buildTest = useCallback(
-    () =>
-      buildAdaptiveMockTest(
-        QUESTIONS,
-        targetCount,
-        mulberry32(randomSeed()),
-        questionStats(attempts),
-      ),
-    [targetCount, attempts],
+  // A couple of questions from the tiny starter set (bundled), so we can render
+  // the first question instantly without waiting on the full bank or history.
+  const seedStarter = useCallback(
+    () => buildAdaptiveMockTest(STARTER_QUESTIONS, seedCount, mulberry32(randomSeed()), {}),
+    [seedCount],
   );
 
-  // Build once the learner's history has loaded (client-only) so selection can
-  // focus on questions they haven't mastered yet. Avoids SSR/CSR mismatch.
+  // Lazy-load the full 1000+ question bank and build the real adaptive test,
+  // keeping the already-shown starter questions (and their answers) at the front
+  // so nothing the learner sees shifts under them.
+  const assembleFull = useCallback(async () => {
+    const { QUESTIONS } = await import("@/data/questions");
+    const full = buildAdaptiveMockTest(
+      QUESTIONS,
+      targetCount,
+      mulberry32(randomSeed()),
+      questionStats(attempts),
+    );
+    setQuestions((prev) => {
+      const lead = prev.slice(0, seedCount);
+      const leadIds = new Set(lead.map((q) => q.id));
+      return [...lead, ...full.filter((q) => !leadIds.has(q.id))].slice(0, targetCount);
+    });
+    setAssembling(false);
+  }, [targetCount, attempts, seedCount]);
+
+  // Phase 1 (instant, client-only — avoids SSR/CSR mismatch): show the starter
+  // questions. Phase 2: once history has loaded, background-build the full test.
   useEffect(() => {
-    if (builtRef.current || loading) return;
-    builtRef.current = true;
-    setQuestions(buildTest());
-  }, [loading, buildTest]);
+    if (startedRef.current) return;
+    startedRef.current = true;
+    setQuestions(seedStarter());
+  }, [seedStarter]);
+
+  useEffect(() => {
+    if (assembledRef.current || loading) return;
+    assembledRef.current = true;
+    void assembleFull();
+  }, [loading, assembleFull]);
 
   const result: AttemptResult | null = useMemo(() => {
     if (!finished || questions.length === 0) return null;
@@ -97,7 +122,9 @@ export function TestRunner({
     setAnswers({});
     setCurrent(0);
     setFinished(false);
-    setQuestions(buildTest());
+    setAssembling(true);
+    setQuestions(seedStarter());
+    void assembleFull(); // bank module is cached after the first load — near-instant
     window.scrollTo({ top: 0 });
   }
 
@@ -109,11 +136,16 @@ export function TestRunner({
     return <Results result={result} questions={questions} answers={answers} onRetake={reset} />;
   }
 
-  const q = questions[current];
+  const idx = Math.min(current, questions.length - 1);
+  const q = questions[idx];
   const selected = answers[q.id] ?? null;
   const revealed = mode === "practice" && selected !== null;
   const answeredCount = questions.filter((x) => answers[x.id] != null).length;
-  const isLast = current === questions.length - 1;
+  // Show the intended test size from the start so the count doesn't jump as the
+  // remaining questions stream in.
+  const total = targetCount;
+  const atLoadedEnd = idx >= questions.length - 1;
+  const isLast = !assembling && atLoadedEnd;
 
   function choose(i: number) {
     if (revealed) return; // locked after answering in practice mode
@@ -131,23 +163,31 @@ export function TestRunner({
       <div className="mb-3" data-testid="test-progress">
         <div className="flex items-center justify-between text-sm text-ca-gray">
           <span className="font-semibold">
-            Question {current + 1} of {questions.length}
+            Question {idx + 1} of {total}
           </span>
           <span>
-            {answeredCount} answered · {mode === "exam" ? `pass ${passCount}/${questions.length}` : "practice"}
+            {answeredCount} answered · {mode === "exam" ? `pass ${passCount}/${total}` : "practice"}
           </span>
         </div>
         <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-ca-line">
           <div
             className="h-full bg-ca-blue transition-all"
-            style={{ width: `${((current + 1) / questions.length) * 100}%` }}
+            style={{ width: `${((idx + 1) / total) * 100}%` }}
           />
         </div>
-        {adaptive && (
+        {assembling ? (
+          <p className="mt-1.5 flex items-center gap-1.5 text-xs text-ca-muted">
+            <span
+              aria-hidden
+              className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-ca-line border-t-ca-blue"
+            />
+            Loading your full {total}-question test…
+          </p>
+        ) : adaptive ? (
           <p className="mt-1.5 text-xs text-ca-blue">
             ★ Focusing on questions you haven’t mastered yet.
           </p>
-        )}
+        ) : null}
       </div>
 
       {/* Question card */}
@@ -223,7 +263,7 @@ export function TestRunner({
         <button
           type="button"
           onClick={() => go(-1)}
-          disabled={current === 0}
+          disabled={idx === 0}
           className="rounded-lg border border-ca-line bg-white px-4 py-2 text-sm font-semibold text-ca-gray disabled:opacity-40"
         >
           ← Previous
@@ -246,7 +286,8 @@ export function TestRunner({
             type="button"
             data-testid="nav-next"
             onClick={() => go(1)}
-            className="rounded-lg bg-ca-blue px-5 py-2 text-sm font-bold text-white hover:bg-ca-blue-dark"
+            disabled={assembling && atLoadedEnd}
+            className="rounded-lg bg-ca-blue px-5 py-2 text-sm font-bold text-white hover:bg-ca-blue-dark disabled:opacity-50"
           >
             {selected === null ? "Skip" : "Next"} →
           </button>
@@ -259,7 +300,20 @@ export function TestRunner({
           Jump to question
         </p>
         <div className="flex flex-wrap gap-1.5">
-          {questions.map((qq, i) => {
+          {Array.from({ length: total }, (_, i) => {
+            const qq = questions[i];
+            if (!qq) {
+              // Not assembled yet — a pending placeholder so the size is clear.
+              return (
+                <span
+                  key={`pending-${i}`}
+                  aria-hidden
+                  className="grid h-8 w-8 place-items-center rounded border border-dashed border-ca-line text-xs font-bold text-ca-line"
+                >
+                  {i + 1}
+                </span>
+              );
+            }
             const done = answers[qq.id] != null;
             return (
               <button
@@ -271,7 +325,7 @@ export function TestRunner({
                 }}
                 aria-label={`Go to question ${i + 1}`}
                 className={`h-8 w-8 rounded text-xs font-bold ${
-                  i === current
+                  i === idx
                     ? "bg-ca-blue text-white"
                     : done
                       ? "bg-ca-green-bg text-ca-green"
@@ -288,13 +342,14 @@ export function TestRunner({
       {mode === "exam" && (
         <button
           type="button"
+          disabled={assembling}
           onClick={() => {
             setFinished(true);
             window.scrollTo({ top: 0 });
           }}
-          className="mt-5 w-full rounded-lg border border-ca-line bg-white py-2 text-sm font-semibold text-ca-blue"
+          className="mt-5 w-full rounded-lg border border-ca-line bg-white py-2 text-sm font-semibold text-ca-blue disabled:opacity-50"
         >
-          Finish &amp; submit ({answeredCount}/{questions.length} answered)
+          Finish &amp; submit ({answeredCount}/{total} answered)
         </button>
       )}
     </div>
