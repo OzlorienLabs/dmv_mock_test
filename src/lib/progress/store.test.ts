@@ -3,6 +3,7 @@ import {
   saveAttempt,
   getAttempts,
   clearAttempts,
+  deleteAttempt,
   summarize,
   getSummary,
   questionStats,
@@ -74,6 +75,20 @@ describe("progress store", () => {
     expect(stored.answers).toBeUndefined();
     // Summary still works
     expect(getSummary().attempts).toBe(1);
+  });
+
+  it("deletes a single attempt by id, leaving the rest", () => {
+    saveAttempt(attempt({ id: "a" }));
+    saveAttempt(attempt({ id: "b" }));
+    saveAttempt(attempt({ id: "c" }));
+    deleteAttempt("b");
+    expect(getAttempts().map((a) => a.id)).toEqual(["c", "a"]);
+  });
+
+  it("deleting a non-existent id is a no-op", () => {
+    saveAttempt(attempt({ id: "a" }));
+    deleteAttempt("nope");
+    expect(getAttempts().map((a) => a.id)).toEqual(["a"]);
   });
 
   it("caps stored attempts at 100", () => {

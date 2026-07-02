@@ -68,6 +68,13 @@ export function clearAttempts(): void {
   window.localStorage.removeItem(KEY);
 }
 
+/** Remove a single attempt from on-device history. */
+export function deleteAttempt(id: string): void {
+  if (!isBrowser()) return;
+  const remaining = getAttempts().filter((a) => a.id !== id);
+  window.localStorage.setItem(KEY, JSON.stringify(remaining));
+}
+
 export function summarize(attempts: StoredAttempt[]): ProgressSummary {
   const perCategory: Partial<Record<CategoryId, CategoryScore>> = {};
   let bestScorePct = 0;

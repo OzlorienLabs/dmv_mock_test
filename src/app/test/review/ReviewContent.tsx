@@ -1,41 +1,66 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { QUESTIONS } from "@/data/questions";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useProgress } from "@/lib/progress/provider";
+import { getAttempts } from "@/lib/progress/store";
 import { TEST_PROFILES } from "@/lib/engine/profiles";
 import { CATEGORY_MAP, type Question } from "@/lib/types";
 import { QuestionReview } from "@/components/QuestionReview";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 /**
  * Client component that reads the attempt ID from search params and renders
  * the full question-by-question review of a past test.
  */
 export default function ReviewContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const attemptId = searchParams.get("id");
-  const { attempts, loading } = useProgress();
+  const { attempts, loading, cloudActive, removeAttempt } = useProgress();
   const [questionMap, setQuestionMap] = useState<Map<string, Question> | null>(
     null,
   );
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
-  // Build question lookup once on client
+  // Locally-cached history, read synchronously — instant even for signed-in
+  // users, so the review renders immediately instead of waiting on the Firestore
+  // fetch. Falls back to the provider list (cloud) for tests taken on another
+  // device.
+  const localAttempts = useMemo(() => getAttempts(), []);
+  const attempt = attemptId
+    ? (localAttempts.find((a) => a.id === attemptId) ??
+      attempts.find((a) => a.id === attemptId))
+    : undefined;
+
+  // Lazy-load the full question bank (keeps this route's initial JS small) to
+  // map each recorded answer back to its question.
   useEffect(() => {
-    const map = new Map<string, Question>();
-    for (const q of QUESTIONS) {
-      map.set(q.id, q);
-    }
-    setQuestionMap(map);
+    let cancelled = false;
+    void (async () => {
+      const { QUESTIONS } = await import("@/data/questions");
+      if (cancelled) return;
+      const map = new Map<string, Question>();
+      for (const q of QUESTIONS) map.set(q.id, q);
+      setQuestionMap(map);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  if (loading || !questionMap) {
-    return (
-      <div className="py-16 text-center text-ca-muted">
-        Loading review…
-      </div>
-    );
+  async function handleRemove() {
+    if (!attempt) return;
+    setDeleting(true);
+    try {
+      await removeAttempt(attempt.id);
+      router.replace("/");
+    } catch {
+      setDeleting(false);
+      setConfirmOpen(false);
+    }
   }
 
   if (!attemptId) {
@@ -52,13 +77,18 @@ export default function ReviewContent() {
     );
   }
 
-  const attempt = attempts.find((a) => a.id === attemptId);
-
+  // Not found in local history: keep waiting only while the cloud list is still
+  // loading (an attempt from another device may still be arriving).
   if (!attempt) {
+    if (loading) {
+      return (
+        <div className="py-16 text-center text-ca-muted">Loading review…</div>
+      );
+    }
     return (
       <div className="py-16 text-center">
         <p className="text-ca-muted">
-          Test not found. It may have been cleared or is on another device.
+          Test not found. It may have been removed or is on another device.
         </p>
         <Link
           href="/"
@@ -67,6 +97,13 @@ export default function ReviewContent() {
           Back to Home
         </Link>
       </div>
+    );
+  }
+
+  // Attempt found; the question-bank chunk may still be downloading.
+  if (!questionMap) {
+    return (
+      <div className="py-16 text-center text-ca-muted">Loading review…</div>
     );
   }
 
@@ -110,19 +147,28 @@ export default function ReviewContent() {
   return (
     <div>
       {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between gap-2">
         <div>
           <h1 className="text-lg font-bold text-ca-ink">Test Review</h1>
           <p className="text-xs text-ca-muted">
             {profileLabel} · {dateStr}
           </p>
         </div>
-        <Link
-          href="/"
-          className="rounded-lg border border-ca-line bg-white px-3 py-1.5 text-sm font-semibold text-ca-gray"
-        >
-          ← Home
-        </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setConfirmOpen(true)}
+            className="rounded-lg border border-ca-red bg-white px-3 py-1.5 text-sm font-semibold text-ca-red hover:bg-ca-red-bg"
+          >
+            Remove
+          </button>
+          <Link
+            href="/"
+            className="rounded-lg border border-ca-line bg-white px-3 py-1.5 text-sm font-semibold text-ca-gray"
+          >
+            ← Home
+          </Link>
+        </div>
       </div>
 
       {/* Score banner */}
@@ -218,6 +264,21 @@ export default function ReviewContent() {
           Home
         </Link>
       </div>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Remove this test?"
+        message={
+          cloudActive
+            ? "This removes it from your history on all your devices. This can't be undone."
+            : "This removes it from your history on this device. This can't be undone."
+        }
+        confirmLabel="Remove"
+        destructive
+        busy={deleting}
+        onConfirm={handleRemove}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import {
   collection,
+  deleteDoc,
   doc,
   getDocs,
   limit,
@@ -19,6 +20,12 @@ export async function cloudSaveAttempt(
   const db = getDb();
   if (!db) return;
   await setDoc(doc(db, "users", uid, "attempts", attempt.id), attempt);
+}
+
+export async function cloudDeleteAttempt(uid: string, id: string): Promise<void> {
+  const db = getDb();
+  if (!db) return;
+  await deleteDoc(doc(db, "users", uid, "attempts", id));
 }
 
 export async function cloudGetAttempts(uid: string): Promise<StoredAttempt[]> {

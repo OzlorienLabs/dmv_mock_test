@@ -11,13 +11,19 @@ import {
 } from "react";
 import { useAuth } from "@/lib/firebase/auth";
 import {
+  deleteAttempt,
   getAttempts,
   saveAttempt,
   summarize,
   type ProgressSummary,
   type StoredAttempt,
 } from "./store";
-import { cloudGetAttempts, cloudMigrateLocal, cloudSaveAttempt } from "./cloud";
+import {
+  cloudDeleteAttempt,
+  cloudGetAttempts,
+  cloudMigrateLocal,
+  cloudSaveAttempt,
+} from "./cloud";
 
 interface ProgressContextValue {
   summary: ProgressSummary | null;
@@ -27,6 +33,8 @@ interface ProgressContextValue {
   /** Whether progress is syncing to the cloud (signed in) vs on-device only. */
   cloudActive: boolean;
   recordAttempt: (attempt: StoredAttempt) => Promise<void>;
+  /** Remove a single attempt from history (on-device + cloud when signed in). */
+  removeAttempt: (id: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -104,9 +112,25 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     [cloudActive, uid, refresh],
   );
 
+  const removeAttempt = useCallback(
+    async (id: string) => {
+      // Remove on-device immediately (works offline and as guest).
+      deleteAttempt(id);
+      if (cloudActive && uid) {
+        try {
+          await cloudDeleteAttempt(uid, id);
+        } catch {
+          // Offline or transient error: local copy is already gone.
+        }
+      }
+      await refresh();
+    },
+    [cloudActive, uid, refresh],
+  );
+
   return (
     <ProgressContext.Provider
-      value={{ summary, attempts, loading, cloudActive, recordAttempt, refresh }}
+      value={{ summary, attempts, loading, cloudActive, recordAttempt, removeAttempt, refresh }}
     >
       {children}
     </ProgressContext.Provider>
