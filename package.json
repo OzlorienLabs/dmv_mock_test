@@ -12,7 +12,12 @@
     "test:watch": "vitest",
     "e2e": "playwright test",
     "emulators": "firebase emulators:start --only auth,firestore",
-    "test:rules": "firebase emulators:exec --only firestore \"vitest run --config vitest.rules.config.ts\""
+    "test:rules": "firebase emulators:exec --only firestore \"vitest run --config vitest.rules.config.ts\"",
+    "icons": "node scripts/generate-icons.mjs",
+    "android:doctor": "npx --yes @bubblewrap/cli doctor",
+    "android:update": "cd android && npx --yes @bubblewrap/cli update",
+    "android:build": "cd android && npx --yes @bubblewrap/cli update && npx --yes @bubblewrap/cli build",
+    "android:install": "cd android && npx --yes @bubblewrap/cli install"
   },
   "dependencies": {
     "@google/genai": "^2.10.0",

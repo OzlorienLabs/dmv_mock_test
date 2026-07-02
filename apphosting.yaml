@@ -56,3 +56,12 @@ env:
   # - variable: GEMINI_TEXT_MODEL
   #   value: gemini-2.5-flash
   #   availability: [RUNTIME]
+
+  # --- Android TWA: Digital Asset Links (served at /.well-known/assetlinks.json)
+  # so the published Android app drops the URL bar. See android/README.md.
+  # - variable: ANDROID_PACKAGE_NAME
+  #   value: com.ozlorienlabs.dmvpractice
+  #   availability: [RUNTIME]
+  # - variable: ANDROID_CERT_FINGERPRINTS   # upload key + Google app-signing key
+  #   value: "AA:BB:CC:...,11:22:33:..."
+  #   availability: [RUNTIME]

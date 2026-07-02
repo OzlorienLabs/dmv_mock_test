@@ -51,3 +51,14 @@ firebase-debug.log*
 firestore-debug.log*
 ui-debug.log*
 .firebase/
+
+# android (TWA) — keep only the committed config + docs; everything else here
+# is a Bubblewrap build artifact and the keystore must NEVER be committed.
+/android/*
+!/android/twa-manifest.json
+!/android/README.md
+android.keystore
+*.jks
+*.keystore
+*.apk
+*.aab

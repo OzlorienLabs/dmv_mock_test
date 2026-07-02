@@ -1,0 +1,51 @@
+{
+  "packageId": "com.ozlorienlabs.dmvpractice",
+  "host": "dmv-practice.example.com",
+  "name": "CA DMV Knowledge Test Practice",
+  "launcherName": "DMV Practice",
+  "display": "standalone",
+  "orientation": "portrait",
+  "themeColor": "#046b99",
+  "themeColorDark": "#046b99",
+  "navigationColor": "#046b99",
+  "navigationColorDark": "#046b99",
+  "navigationDividerColor": "#046b99",
+  "navigationDividerColorDark": "#046b99",
+  "backgroundColor": "#eef1f4",
+  "enableNotifications": false,
+  "startUrl": "/",
+  "iconUrl": "https://dmv-practice.example.com/icons/icon-512.png",
+  "maskableIconUrl": "https://dmv-practice.example.com/icons/maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "dmvpractice"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [
+    {
+      "name": "Take a mock test",
+      "shortName": "Mock test",
+      "url": "/test?profile=original&mode=exam",
+      "chosenIconUrl": "https://dmv-practice.example.com/icons/icon-192.png"
+    },
+    {
+      "name": "Quick practice",
+      "shortName": "Practice",
+      "url": "/test?profile=original&mode=practice",
+      "chosenIconUrl": "https://dmv-practice.example.com/icons/icon-192.png"
+    }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://dmv-practice.example.com/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {},
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://dmv-practice.example.com/",
+  "minSdkVersion": 21,
+  "fingerprints": [],
+  "additionalTrustedOrigins": []
+}
