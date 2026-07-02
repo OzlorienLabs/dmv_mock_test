@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/firebase/auth";
 import { getAppCheckToken } from "@/lib/firebase/config";
+import { AccountSettings } from "@/components/AccountSettings";
 
 interface KeyStatus {
   configured: boolean;
@@ -92,7 +93,7 @@ export default function SettingsPage() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-extrabold text-ca-ink">AI audio settings</h1>
+        <h1 className="text-xl font-extrabold text-ca-ink">Settings</h1>
         <Link
           href="/"
           className="rounded-lg border border-ca-line bg-white px-3 py-1.5 text-sm font-semibold text-ca-gray"
@@ -114,8 +115,14 @@ export default function SettingsPage() {
           extra languages.
         </p>
       ) : (
-        <div className="space-y-4">
-          <div className="rounded-xl border border-ca-line bg-white p-4 text-sm text-ca-gray">
+        <div className="space-y-6">
+          <AccountSettings />
+
+          <div className="space-y-3">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-ca-muted">
+              AI audio
+            </h2>
+            <div className="rounded-xl border border-ca-line bg-white p-4 text-sm text-ca-gray">
             <p className="mb-2">
               Default languages (English, Bengali, Hindi, Spanish) use
               pre-generated explanations — no key needed. Add your own{" "}
@@ -175,6 +182,7 @@ export default function SettingsPage() {
               </div>
             </form>
             {msg && <p className="mt-2 text-sm text-ca-gray">{msg}</p>}
+          </div>
           </div>
         </div>
       )}
