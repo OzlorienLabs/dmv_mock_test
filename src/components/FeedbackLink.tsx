@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { getAppCheckToken } from "@/lib/firebase/config";
 
 const FEEDBACK_TO = "ozlorienlabs@gmail.com";
@@ -99,16 +100,18 @@ export function FeedbackLink() {
         Ozlorien Labs
       </button>
 
-      {open && (
+      {open &&
+        typeof document !== "undefined" &&
+        createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 text-left sm:items-center sm:p-4"
           role="dialog"
           aria-modal="true"
           aria-label="Send feedback to Ozlorien Labs"
           onClick={close}
         >
           <div
-            className="w-full max-w-md rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl"
+            className="flex max-h-[92dvh] w-full max-w-md flex-col overflow-y-auto rounded-t-2xl bg-white p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-xl sm:max-h-[85vh] sm:rounded-2xl sm:pb-5"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between">
@@ -208,8 +211,9 @@ export function FeedbackLink() {
               </form>
             )}
           </div>
-        </div>
-      )}
+        </div>,
+          document.body,
+        )}
     </>
   );
 }
