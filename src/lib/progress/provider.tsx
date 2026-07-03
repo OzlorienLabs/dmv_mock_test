@@ -55,7 +55,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     if (cloudActive && uid) {
-      const all = await cloudGetAttempts(uid);
+      const all = mergeAttempts(getAttempts(), await cloudGetAttempts(uid));
       setAttempts(all);
       setSummary(summarize(all));
     } else {
@@ -75,7 +75,11 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
             await cloudMigrateLocal(uid, getAttempts());
             migratedFor.current = uid;
           }
-          const all = await cloudGetAttempts(uid);
+          // Merge with local so an attempt just saved on this device — but not
+          // yet in this cloud read (e.g. a test finished while this load was in
+          // flight) — is never dropped, which otherwise made a just-taken test
+          // disappear from history until a full refresh.
+          const all = mergeAttempts(getAttempts(), await cloudGetAttempts(uid));
           if (!cancelled) {
             setAttempts(all);
             setSummary(summarize(all));
@@ -108,17 +112,20 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       setAttempts(optimistic);
       setSummary(summarize(optimistic));
 
-      // 2) Sync to the cloud in the background, then reconcile — merging local
-      //    so a lagging/failed cloud read can never drop what we just saved.
+      // 2) Sync to the cloud in the BACKGROUND so nothing (incl. navigation)
+      //    ever waits on the network; reconcile by merging local so a lagging
+      //    read can't drop what we just saved.
       if (cloudActive && uid) {
-        try {
-          await cloudSaveAttempt(uid, attempt);
-          const merged = mergeAttempts(getAttempts(), await cloudGetAttempts(uid));
-          setAttempts(merged);
-          setSummary(summarize(merged));
-        } catch {
-          // Offline or transient error: the local copy stands and migrates later.
-        }
+        void (async () => {
+          try {
+            await cloudSaveAttempt(uid, attempt);
+            const merged = mergeAttempts(getAttempts(), await cloudGetAttempts(uid));
+            setAttempts(merged);
+            setSummary(summarize(merged));
+          } catch {
+            // Offline/transient: the local copy stands and migrates on sign-in.
+          }
+        })();
       }
     },
     [cloudActive, uid, attempts],
@@ -131,15 +138,26 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       const remaining = attempts.filter((a) => a.id !== id);
       setAttempts(remaining);
       setSummary(summarize(remaining));
+
+      // Delete from the cloud in the BACKGROUND — never block the caller (or the
+      // review screen's navigation) on the round-trip, which is what made
+      // signed-in removal appear to hang.
       if (cloudActive && uid) {
-        try {
-          await cloudDeleteAttempt(uid, id);
-          const merged = mergeAttempts(getAttempts(), await cloudGetAttempts(uid));
-          setAttempts(merged);
-          setSummary(summarize(merged));
-        } catch {
-          // Offline or transient error: local copy is already gone.
-        }
+        void (async () => {
+          try {
+            await cloudDeleteAttempt(uid, id);
+            // Reconcile with the cloud, but never let the just-deleted id come
+            // back from a lagging read.
+            const merged = mergeAttempts(
+              getAttempts(),
+              await cloudGetAttempts(uid),
+            ).filter((a) => a.id !== id);
+            setAttempts(merged);
+            setSummary(summarize(merged));
+          } catch {
+            // Offline/transient: local copy is already gone.
+          }
+        })();
       }
     },
     [cloudActive, uid, attempts],
