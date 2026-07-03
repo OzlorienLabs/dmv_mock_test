@@ -33,6 +33,8 @@ interface ProgressContextValue {
   loading: boolean;
   /** Whether progress is syncing to the cloud (signed in) vs on-device only. */
   cloudActive: boolean;
+  /** True when a cloud read/write failed (offline, permissions, App Check…). */
+  cloudError: boolean;
   recordAttempt: (attempt: StoredAttempt) => Promise<void>;
   /** Remove a single attempt from history (on-device + cloud when signed in). */
   removeAttempt: (id: string) => Promise<void>;
@@ -46,6 +48,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   const [summary, setSummary] = useState<ProgressSummary | null>(null);
   const [attempts, setAttempts] = useState<StoredAttempt[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cloudError, setCloudError] = useState(false);
   const migratedFor = useRef<string | null>(null);
 
   // A real (non-anonymous) signed-in user syncs to the cloud; everyone else
@@ -55,9 +58,20 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     if (cloudActive && uid) {
-      const all = mergeAttempts(getAttempts(), await cloudGetAttempts(uid));
-      setAttempts(all);
-      setSummary(summarize(all));
+      try {
+        // Re-push anything on this device that isn't in the cloud yet (self-heals
+        // a write that failed earlier), then pull the merged set.
+        const cloudAll = await cloudMigrateLocal(uid, getAttempts());
+        const all = mergeAttempts(getAttempts(), cloudAll);
+        setAttempts(all);
+        setSummary(summarize(all));
+        setCloudError(false);
+      } catch {
+        const localOnly = getAttempts();
+        setAttempts(localOnly);
+        setSummary(summarize(localOnly));
+        setCloudError(true);
+      }
     } else {
       const all = getAttempts();
       setAttempts(all);
@@ -88,6 +102,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
           if (!cancelled) {
             setAttempts(all);
             setSummary(summarize(all));
+            setCloudError(false);
           }
         } else {
           if (!cancelled) {
@@ -95,6 +110,17 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
             setAttempts(all);
             setSummary(summarize(all));
           }
+        }
+      } catch {
+        // Cloud read/migrate failed (offline, permissions, App Check, transient).
+        // Without this catch the error was unhandled and cloud data never
+        // rendered — leaving the dashboard blank on another device. Fall back to
+        // on-device history and flag the sync error so the user can retry.
+        if (!cancelled) {
+          const localOnly = getAttempts();
+          setAttempts(localOnly);
+          setSummary(summarize(localOnly));
+          if (cloudActive && uid) setCloudError(true);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -127,8 +153,11 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
             const merged = mergeAttempts(getAttempts(), await cloudGetAttempts(uid));
             setAttempts(merged);
             setSummary(summarize(merged));
+            setCloudError(false);
           } catch {
-            // Offline/transient: the local copy stands and migrates on sign-in.
+            // Offline/transient: the local copy stands and is re-pushed on the
+            // next load/refresh (or once the persistent-cache write syncs).
+            setCloudError(true);
           }
         })();
       }
@@ -159,8 +188,10 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
             ).filter((a) => a.id !== id);
             setAttempts(merged);
             setSummary(summarize(merged));
+            setCloudError(false);
           } catch {
             // Offline/transient: local copy is already gone.
+            setCloudError(true);
           }
         })();
       }
@@ -170,7 +201,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
   return (
     <ProgressContext.Provider
-      value={{ summary, attempts, loading, cloudActive, recordAttempt, removeAttempt, refresh }}
+      value={{ summary, attempts, loading, cloudActive, cloudError, recordAttempt, removeAttempt, refresh }}
     >
       {children}
     </ProgressContext.Provider>

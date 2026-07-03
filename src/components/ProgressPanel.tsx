@@ -19,7 +19,8 @@ import {
 import type { StoredAttempt } from "@/lib/progress/store";
 
 export function ProgressPanel() {
-  const { summary, attempts, loading, cloudActive } = useProgress();
+  const { summary, attempts, loading, cloudActive, cloudError, refresh } =
+    useProgress();
 
   // Build question lookup once (client only)
   const [qMap, setQMap] = useState<Map<string, Question> | null>(null);
@@ -155,7 +156,14 @@ export function ProgressPanel() {
       )}
 
       {/* ── Test History ──────────────────────────────────── */}
-      {attempts.length > 0 && <TestHistory attempts={attempts} />}
+      {attempts.length > 0 && (
+        <TestHistory
+          attempts={attempts}
+          cloudActive={cloudActive}
+          cloudError={cloudError}
+          onSync={refresh}
+        />
+      )}
     </div>
   );
 }
@@ -545,17 +553,55 @@ function TroubleQuestionsCard({
 
 const HISTORY_PAGE = 5;
 
-function TestHistory({ attempts }: { attempts: StoredAttempt[] }) {
+function TestHistory({
+  attempts,
+  cloudActive,
+  cloudError,
+  onSync,
+}: {
+  attempts: StoredAttempt[];
+  cloudActive: boolean;
+  cloudError: boolean;
+  onSync: () => Promise<void>;
+}) {
   // Lazy: show the 5 most recent; reveal the next 5 each "Load more".
   const [visibleCount, setVisibleCount] = useState(HISTORY_PAGE);
+  const [syncing, setSyncing] = useState(false);
   const visible = attempts.slice(0, visibleCount);
   const remaining = attempts.length - visible.length;
 
+  async function sync() {
+    setSyncing(true);
+    try {
+      await onSync();
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   return (
     <div className="rounded-xl border border-ca-line bg-white p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-ca-muted">
-        Test history
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-ca-muted">
+          Test history
+        </p>
+        {cloudActive && (
+          <button
+            type="button"
+            onClick={sync}
+            disabled={syncing}
+            className="rounded-md border border-ca-line bg-white px-2.5 py-1 text-xs font-semibold text-ca-blue transition hover:bg-ca-bg disabled:opacity-50"
+          >
+            {syncing ? "Syncing…" : "⟳ Sync"}
+          </button>
+        )}
+      </div>
+      {cloudActive && cloudError && (
+        <p className="mt-2 rounded-md bg-ca-red-bg px-2.5 py-1.5 text-[11px] text-ca-red">
+          ⚠ Couldn&rsquo;t sync with your account. Tests are saved on this device —
+          tap Sync to retry.
+        </p>
+      )}
       <ul className="mt-3 space-y-2">
         {visible.map((a) => {
           const pct = a.total > 0 ? Math.round((a.correctCount / a.total) * 100) : 0;
