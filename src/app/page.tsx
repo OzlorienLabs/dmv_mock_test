@@ -22,6 +22,24 @@ export default function Home() {
 
       <section>
         <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-ca-muted">
+          Study
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <ModeCard
+            href="/test?profile=original&mode=practice"
+            title="Quick practice (10)"
+            desc="Instant feedback and explanations after each question."
+          />
+          <ModeCard
+            href="/road-test"
+            title="Road test (DL-80) guide"
+            desc="What the examiner scores on the behind-the-wheel test."
+          />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-ca-muted">
           Take a mock test
         </h2>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -35,24 +53,6 @@ export default function Home() {
             href="/test?profile=renewal&mode=exam"
             title={TEST_PROFILES.renewal.label}
             desc={TEST_PROFILES.renewal.description}
-          />
-        </div>
-      </section>
-
-      <section>
-        <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-ca-muted">
-          Study
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <ModeCard
-            href="/test?profile=original&mode=practice"
-            title="Quick practice (10)"
-            desc="Instant feedback and explanations after each question."
-          />
-          <ModeCard
-            href="/road-test"
-            title="Road test (DL-80) guide"
-            desc="What the examiner scores on the behind-the-wheel test."
           />
         </div>
       </section>

@@ -38,6 +38,16 @@ Before your first build, edit `twa-manifest.json` and replace
 shortcut `chosenIconUrl`s. Confirm `packageId` (default
 `com.ozlorienlabs.dmvpractice`) — this is permanent once published.
 
+If you use **Google sign-in**, also add your Firebase auth domain to
+`additionalTrustedOrigins` so the OAuth popup stays inside the app without the
+URL bar, e.g.:
+
+```json
+"additionalTrustedOrigins": ["https://your-project.firebaseapp.com"]
+```
+
+See "Firebase sign-in inside the app" below.
+
 ---
 
 ## Prerequisites
@@ -112,6 +122,30 @@ This repo generates that file from env — no code change needed:
 > (Play Console → Test and release → App integrity → App signing key
 > certificate). Otherwise the URL bar will show in the published app.
 
+## 3b. Firebase sign-in inside the app (if you use Google sign-in)
+
+The app shares Chrome's storage, so **guest play and email/password sign-in work
+with no extra setup**, and Firestore progress syncs to the same account as on the
+web. Google sign-in via a popup needs two things so it completes in-app without a
+URL bar:
+
+1. **Trust the auth origin.** Add your Firebase auth domain to
+   `additionalTrustedOrigins` in `twa-manifest.json` (then rebuild):
+   ```json
+   "additionalTrustedOrigins": ["https://your-project.firebaseapp.com"]
+   ```
+2. **Authorize the domains** in Firebase Console → Authentication → Settings →
+   *Authorized domains* (your production domain is required; keep the default
+   `*.firebaseapp.com`).
+
+For the most reliable Google sign-in in wrapped apps, serve the auth handler from
+**your own domain** (Firebase Hosting custom auth domain / `authDomain` on the
+same site) — this avoids third-party-storage partitioning that can otherwise
+break the redirect flow. If popup sign-in still misbehaves on a device, switch
+the web app's Google flow to `signInWithRedirect` (one-line change in
+[`src/lib/firebase/auth.tsx`](../src/lib/firebase/auth.tsx) plus a
+`getRedirectResult` on load). Email/password and guest are unaffected either way.
+
 ## 4. Test on a device or emulator
 
 ```bash
@@ -159,9 +193,9 @@ Verify:
   `/.well-known/assetlinks.json` lists the fingerprint that actually signed the
   installed build (upload key for local installs; Google's app-signing key for
   Play installs), then reinstall.
-- **Google sign-in doesn't complete in the app** → in the very rare case the
-  popup flow misbehaves inside the TWA, switch the web app's Google sign-in to
-  `signInWithRedirect` (see `src/lib/firebase/auth.tsx`); email/password is
-  unaffected.
+- **Google sign-in doesn't complete in the app** → see "Firebase sign-in inside
+  the app" above: add the Firebase auth domain to `additionalTrustedOrigins`,
+  authorize your domains in Firebase Console, and (most robust) use a same-domain
+  auth handler or `signInWithRedirect`. Email/password and guest are unaffected.
 - **`bubblewrap` can't find JDK/SDK** → run `npx @bubblewrap/cli doctor` and let
   it install them, or set `JAVA_HOME` (JDK 17) and `ANDROID_HOME`.

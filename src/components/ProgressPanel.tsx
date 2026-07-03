@@ -543,9 +543,13 @@ function TroubleQuestionsCard({
 
 /* ── Test History Section ───────────────────────────────────── */
 
+const HISTORY_PAGE = 5;
+
 function TestHistory({ attempts }: { attempts: StoredAttempt[] }) {
-  const [showAll, setShowAll] = useState(false);
-  const visible = showAll ? attempts : attempts.slice(0, 5);
+  // Lazy: show the 5 most recent; reveal the next 5 each "Load more".
+  const [visibleCount, setVisibleCount] = useState(HISTORY_PAGE);
+  const visible = attempts.slice(0, visibleCount);
+  const remaining = attempts.length - visible.length;
 
   return (
     <div className="rounded-xl border border-ca-line bg-white p-4">
@@ -614,14 +618,29 @@ function TestHistory({ attempts }: { attempts: StoredAttempt[] }) {
         })}
       </ul>
 
-      {attempts.length > 5 && (
-        <button
-          type="button"
-          onClick={() => setShowAll((s) => !s)}
-          className="mt-3 w-full rounded-lg border border-ca-line bg-white py-2 text-center text-xs font-semibold text-ca-blue transition hover:bg-ca-bg"
-        >
-          {showAll ? "Show less" : `Show all ${attempts.length} tests`}
-        </button>
+      {attempts.length > HISTORY_PAGE && (
+        <div className="mt-3 flex gap-2">
+          {remaining > 0 && (
+            <button
+              type="button"
+              onClick={() =>
+                setVisibleCount((c) => Math.min(attempts.length, c + HISTORY_PAGE))
+              }
+              className="flex-1 rounded-lg border border-ca-line bg-white py-2 text-center text-xs font-semibold text-ca-blue transition hover:bg-ca-bg"
+            >
+              Load {Math.min(HISTORY_PAGE, remaining)} more · {remaining} left
+            </button>
+          )}
+          {visibleCount > HISTORY_PAGE && (
+            <button
+              type="button"
+              onClick={() => setVisibleCount(HISTORY_PAGE)}
+              className="rounded-lg border border-ca-line bg-white px-3 py-2 text-center text-xs font-semibold text-ca-gray transition hover:bg-ca-bg"
+            >
+              Show less
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

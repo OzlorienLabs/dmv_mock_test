@@ -122,14 +122,26 @@ export const MASTERY_TARGET = 2;
 
 /**
  * Selection weight for a question given the learner's history. Higher = more
- * likely to be asked. Unseen and never-correct questions are prioritized;
- * mastered questions are rarely repeated (a little more if recently missed).
+ * likely to be asked. Questions the learner has NEVER tried are the top
+ * priority (weighted above every already-seen question), then ones they've seen
+ * but never gotten right, then still-learning, then mastered (rarely repeated,
+ * a little more if recently missed).
  */
 export function questionWeight(stat: QuestionStat | undefined): number {
-  if (!stat || stat.seen === 0) return 4; // unseen
-  if (stat.correct === 0) return 6; // seen but never correct
+  if (!stat || stat.seen === 0) return 8; // never tried — highest priority
+  if (stat.correct === 0) return 5; // seen but never correct
   if (stat.correct < MASTERY_TARGET) return stat.lastCorrect ? 3 : 4; // still learning
-  return stat.lastCorrect ? 1 : 2.5; // mastered (slipped recently → revisit a little)
+  return stat.lastCorrect ? 1 : 2; // mastered (slipped recently → revisit a little)
+}
+
+/**
+ * Random multiplier applied to each question's weight at selection time so two
+ * tests built from the same history still differ (more variety), without
+ * changing the average priority order. Uses the passed-in seedable RNG, so a
+ * fixed seed remains fully deterministic.
+ */
+export function jitteredWeight(base: number, rng: RNG): number {
+  return base * (0.75 + rng() * 0.5); // ×[0.75, 1.25)
 }
 
 /** Sample up to `n` distinct items by weight, without replacement. */
@@ -165,7 +177,9 @@ export function buildAdaptiveMockTest(
   rng: RNG,
   stats: Record<string, QuestionStat>,
 ): Question[] {
-  const weightOf = (q: Question) => questionWeight(stats[q.id]);
+  // Weight by mastery, with a random jitter so repeated tests stay varied while
+  // still favoring not-yet-mastered (and especially never-tried) questions.
+  const weightOf = (q: Question) => jitteredWeight(questionWeight(stats[q.id]), rng);
   if (pool.length <= count) {
     return shuffle(pool, rng).map((q) => shuffleOptions(q, rng));
   }

@@ -9,6 +9,7 @@ import {
   buildMockTest,
   buildAdaptiveMockTest,
   questionWeight,
+  jitteredWeight,
   scoreAttempt,
   type QuestionStat,
 } from "./index";
@@ -33,15 +34,61 @@ function makePool(per: number): Question[] {
 
 describe("adaptive selection", () => {
   it("weights unmastered questions higher than mastered ones", () => {
-    expect(questionWeight(undefined)).toBe(4); // unseen
-    expect(questionWeight({ seen: 1, correct: 0, lastCorrect: false })).toBe(6); // never right
+    expect(questionWeight(undefined)).toBe(8); // never tried
+    expect(questionWeight({ seen: 1, correct: 0, lastCorrect: false })).toBe(5); // never right
     expect(questionWeight({ seen: 2, correct: 1, lastCorrect: true })).toBe(3); // learning
     expect(questionWeight({ seen: 2, correct: 1, lastCorrect: false })).toBe(4);
     expect(questionWeight({ seen: 3, correct: 3, lastCorrect: true })).toBe(1); // mastered
-    expect(questionWeight({ seen: 3, correct: 3, lastCorrect: false })).toBe(2.5);
+    expect(questionWeight({ seen: 3, correct: 3, lastCorrect: false })).toBe(2);
     expect(questionWeight(undefined)).toBeGreaterThan(
       questionWeight({ seen: 5, correct: 5, lastCorrect: true }),
     );
+  });
+
+  it("prioritizes never-tried questions above every already-seen state", () => {
+    const unseen = questionWeight(undefined);
+    const seenStates = [
+      { seen: 1, correct: 0, lastCorrect: false }, // never right
+      { seen: 2, correct: 1, lastCorrect: false }, // learning, missed
+      { seen: 2, correct: 1, lastCorrect: true }, // learning
+      { seen: 3, correct: 3, lastCorrect: false }, // mastered, slipped
+      { seen: 3, correct: 3, lastCorrect: true }, // mastered
+    ];
+    for (const s of seenStates) {
+      expect(unseen).toBeGreaterThan(questionWeight(s));
+    }
+  });
+
+  it("jitter stays within ±25% of the base weight and is seed-deterministic", () => {
+    const rng = mulberry32(7);
+    for (let i = 0; i < 200; i++) {
+      const j = jitteredWeight(10, rng);
+      expect(j).toBeGreaterThanOrEqual(7.5);
+      expect(j).toBeLessThan(12.5);
+    }
+    // Same seed → same sequence.
+    expect(jitteredWeight(4, mulberry32(3))).toBe(jitteredWeight(4, mulberry32(3)));
+  });
+
+  it("asks never-tried questions more often than already-seen ones", () => {
+    const pool = makePool(8); // 16 categories * 8 = 128
+    // Mark indices 0-3 of each category as SEEN (mastered); 4-7 are never tried.
+    const stats: Record<string, QuestionStat> = {};
+    for (const c of CATEGORIES) {
+      for (let i = 0; i < 4; i++) {
+        stats[`${c.id}-${i}`] = { seen: 3, correct: 3, lastCorrect: true };
+      }
+    }
+    let seen = 0;
+    let neverTried = 0;
+    for (let s = 1; s <= 40; s++) {
+      for (const q of buildAdaptiveMockTest(pool, 46, mulberry32(s), stats)) {
+        const idx = Number(q.id.split("-").pop());
+        if (idx < 4) seen += 1;
+        else neverTried += 1;
+      }
+    }
+    expect(neverTried).toBeGreaterThan(seen * 1.5);
   });
 
   it("returns the requested count with no repeats", () => {

@@ -71,15 +71,20 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       try {
         if (cloudActive && uid) {
+          // On first sign-in, migrate returns the merged cloud set so we don't
+          // issue a second read; afterwards just read. Merge with local so an
+          // attempt just saved on this device — but not yet in this cloud read
+          // (e.g. a test finished while this load was in flight) — is never
+          // dropped, which otherwise made a just-taken test disappear from
+          // history until a full refresh.
+          let cloudAll: StoredAttempt[];
           if (migratedFor.current !== uid) {
-            await cloudMigrateLocal(uid, getAttempts());
+            cloudAll = await cloudMigrateLocal(uid, getAttempts());
             migratedFor.current = uid;
+          } else {
+            cloudAll = await cloudGetAttempts(uid);
           }
-          // Merge with local so an attempt just saved on this device — but not
-          // yet in this cloud read (e.g. a test finished while this load was in
-          // flight) — is never dropped, which otherwise made a just-taken test
-          // disappear from history until a full refresh.
-          const all = mergeAttempts(getAttempts(), await cloudGetAttempts(uid));
+          const all = mergeAttempts(getAttempts(), cloudAll);
           if (!cancelled) {
             setAttempts(all);
             setSummary(summarize(all));

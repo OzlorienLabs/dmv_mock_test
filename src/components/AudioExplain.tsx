@@ -32,6 +32,7 @@ export function AudioExplain({ question }: { question: Question }) {
   const [fetchedText, setFetchedText] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [showText, setShowText] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
@@ -119,8 +120,9 @@ export function AudioExplain({ question }: { question: Question }) {
       const bcp47 = DETAIL_LANG_BCP47[lang];
       speak(getDetailedExplanation(lang, question), bcp47);
       if (lang !== "en" && supported && !pickVoice(bcp47)) {
+        setShowText(true); // no voice — reveal the text so it's still usable
         setNote(
-          `Your device may not have a ${DETAIL_LANG_LABEL[lang]} voice installed — the text is shown above.`,
+          `Your device may not have a ${DETAIL_LANG_LABEL[lang]} voice installed — see the text below.`,
         );
       }
       return;
@@ -183,9 +185,19 @@ export function AudioExplain({ question }: { question: Question }) {
             className="rounded-md border border-ca-line bg-white px-2 py-2 text-sm"
           />
         )}
+        {displayText && supported && (
+          <button
+            type="button"
+            onClick={() => setShowText((s) => !s)}
+            aria-expanded={showText || !supported}
+            className="ml-auto text-xs font-semibold text-ca-blue underline underline-offset-2"
+          >
+            {showText ? "Hide text ▴" : "Show text ▾"}
+          </button>
+        )}
       </div>
 
-      {displayText && (
+      {(showText || !supported) && displayText && (
         <p className="mt-2 whitespace-pre-line text-sm text-ca-gray">{displayText}</p>
       )}
       {lang !== "other" && (

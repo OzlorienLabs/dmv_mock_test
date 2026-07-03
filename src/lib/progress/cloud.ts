@@ -9,7 +9,12 @@ import {
   setDoc,
 } from "firebase/firestore";
 import { getDb } from "@/lib/firebase/config";
-import { summarize, type ProgressSummary, type StoredAttempt } from "./store";
+import {
+  mergeAttempts,
+  summarize,
+  type ProgressSummary,
+  type StoredAttempt,
+} from "./store";
 
 /** Firestore-backed progress, stored under users/{uid}/attempts/{attemptId}. */
 
@@ -40,13 +45,19 @@ export async function cloudGetSummary(uid: string): Promise<ProgressSummary> {
   return summarize(await cloudGetAttempts(uid));
 }
 
-/** Copy any local attempts not already in the cloud (one-time, on sign-in). */
+/**
+ * Copy any local attempts not already in the cloud (one-time, on sign-in) and
+ * return the merged set, so the caller can reuse it instead of issuing a second
+ * read (one round-trip on sign-in instead of two).
+ */
 export async function cloudMigrateLocal(
   uid: string,
   localAttempts: StoredAttempt[],
-): Promise<void> {
-  if (localAttempts.length === 0) return;
-  const existing = new Set((await cloudGetAttempts(uid)).map((a) => a.id));
-  const toWrite = localAttempts.filter((a) => !existing.has(a.id));
+): Promise<StoredAttempt[]> {
+  const existing = await cloudGetAttempts(uid);
+  if (localAttempts.length === 0) return existing;
+  const existingIds = new Set(existing.map((a) => a.id));
+  const toWrite = localAttempts.filter((a) => !existingIds.has(a.id));
   await Promise.all(toWrite.map((a) => cloudSaveAttempt(uid, a)));
+  return mergeAttempts(localAttempts, existing);
 }

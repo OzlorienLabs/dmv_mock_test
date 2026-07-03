@@ -2,6 +2,9 @@ import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getAuth, connectAuthEmulator, type Auth } from "firebase/auth";
 import {
   getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   connectFirestoreEmulator,
   type Firestore,
 } from "firebase/firestore";
@@ -109,12 +112,36 @@ export function getFirebaseAuth(): Auth | null {
   return authInstance;
 }
 
+/**
+ * Create the Firestore client. In the browser we enable a persistent
+ * (IndexedDB) local cache and auto-detected long-polling so reads are served
+ * instantly from cache and sync in the background, and connections stay fast on
+ * restrictive networks/proxies — a much quicker perceived response for
+ * signed-in users. Falls back to the plain client on the server, under the
+ * emulator, or if initialization fails (e.g. private-mode IndexedDB).
+ */
+function createDb(a: FirebaseApp): Firestore {
+  if (typeof window !== "undefined" && !useEmulator) {
+    try {
+      return initializeFirestore(a, {
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager(),
+        }),
+        experimentalAutoDetectLongPolling: true,
+      });
+    } catch {
+      // Already initialized or unsupported — fall through to the default.
+    }
+  }
+  return getFirestore(a);
+}
+
 export function getDb(): Firestore | null {
   const a = ensureApp();
   if (!a) return null;
   if (!dbInstance) {
     try {
-      dbInstance = getFirestore(a);
+      dbInstance = createDb(a);
     } catch {
       return null;
     }
