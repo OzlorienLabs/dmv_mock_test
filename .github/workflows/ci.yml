@@ -56,8 +56,13 @@ jobs:
           node-version: 20
           cache: npm
 
-      # The Firestore emulator (started by `npm run test:rules`) needs Java,
-      # which is preinstalled on ubuntu-latest.
+      # The Firestore emulator (started by `npm run test:rules`) needs a JDK.
+      # firebase-tools requires Java 21+ (the runner's default is older).
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
       - name: Install dependencies
         run: npm ci
 
