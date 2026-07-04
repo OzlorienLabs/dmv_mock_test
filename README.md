@@ -1,6 +1,6 @@
 # [Driver License Test Practice](https://dltest.stocktimelines.com/)
 
-Release v2.0.5
+Release v2.0.6
 
 A free, mobile-first web app to study and take **mock California DMV Class C
 Driver's License knowledge tests** — styled after the real DMV experience, with
