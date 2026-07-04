@@ -63,39 +63,6 @@ describe("firestore security rules", () => {
     await assertSucceeds(getDoc(doc(anon, "questions/q1")));
   });
 
-  it("allows anyone to read cached audio but not write it", async () => {
-    await env.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), "audio/q1"), { text: { en: "x" } });
-    });
-    const anon = env.unauthenticatedContext().firestore();
-    await assertSucceeds(getDoc(doc(anon, "audio/q1")));
-    const alice = env.authenticatedContext("alice").firestore();
-    await assertFails(setDoc(doc(alice, "audio/q1"), { text: { en: "y" } }));
-  });
-
-  it("never lets a client read or write encrypted keys (userSecrets)", async () => {
-    await env.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), "userSecrets/alice"), { keyCiphertext: "x" });
-    });
-    const alice = env.authenticatedContext("alice").firestore();
-    await assertFails(getDoc(doc(alice, "userSecrets/alice")));
-    await assertFails(setDoc(doc(alice, "userSecrets/alice"), { keyCiphertext: "y" }));
-  });
-
-  it("lets the owner read usage counters but blocks client writes", async () => {
-    await env.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), "users/alice/usage/ai"), {
-        dateKey: "2026-06-27",
-        audioCalls: 3,
-      });
-    });
-    const alice = env.authenticatedContext("alice").firestore();
-    await assertSucceeds(getDoc(doc(alice, "users/alice/usage/ai")));
-    await assertFails(
-      setDoc(doc(alice, "users/alice/usage/ai"), { audioCalls: 0 }),
-    );
-  });
-
   it("never lets a client read or write feedback submissions", async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), "feedback/f1"), { message: "hi" });

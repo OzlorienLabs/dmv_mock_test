@@ -39,10 +39,9 @@ and AI audio explanations in multiple languages.
   entire exams. Works for both guests (localStorage) and signed-in users (Firestore).
 - **Detailed multilingual explanations + offline audio** — every question has a
   detailed explanation in **English, Bengali, and Spanish**, bundled in the app
-  and read aloud **entirely on-device** (Web Speech API, no server, works
-  offline). English is per-question; BN/ES are topic-level and can be upgraded to
-  per-question with an optional build-time script. Any other language uses a
-  **bring-your-own Gemini key** (encrypted server-side, per-user daily cap).
+  and read aloud **entirely on-device** (Web Speech API, no server, no keys,
+  works offline). English is per-question; BN/ES are topic-level and can be
+  upgraded to per-question with an optional owner-run build-time script.
 - **Road-test (DL-80) module** — interactive coaching with self-assessment.
 - **Installable PWA** (offline support), optional **App Check**, GitHub Actions
   **CI**, and **push-to-deploy** (Firebase App Hosting or Cloud Run).
@@ -50,8 +49,9 @@ and AI audio explanations in multiple languages.
 ## Tech stack
 
 Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4 ·
-Firebase Auth + Firestore (optional) · `@google/genai` · firebase-admin ·
+Firebase Auth + Firestore (optional) · firebase-admin ·
 Vitest · Playwright · Firebase Emulator Suite.
+(`@google/genai` is used only by owner-run content scripts, not at runtime.)
 
 ## Develop
 
@@ -85,21 +85,17 @@ CI runs all of these on every push/PR to `main` (`.github/workflows/ci.yml`).
 # Production setup — step by step
 
 The app runs as a guest with zero setup. The steps below add **accounts +
-cloud sync**, **AI explanations/audio**, and **deployment**. Companion docs:
-[FIREBASE_SETUP.md](FIREBASE_SETUP.md) · [AUDIO_SETUP.md](AUDIO_SETUP.md) ·
-[PRODUCTION.md](PRODUCTION.md).
+cloud sync**, and **deployment**. Companion docs:
+[FIREBASE_SETUP.md](FIREBASE_SETUP.md) · [PRODUCTION.md](PRODUCTION.md).
 
 ### What you'll provision
 
 | System | Purpose |
 |---|---|
 | Firebase project (= a Google Cloud project) | Auth, Firestore, hosting |
-| Cloud Firestore (Native) | User progress, cached explanations, encrypted keys |
+| Cloud Firestore (Native) | User progress (attempts) |
 | Firebase Authentication | Google + Email/Password sign-in |
-| Gemini API | AI explanations (text) and on-demand audio |
-| Google Cloud Text-to-Speech *(optional)* | High-quality cached audio files |
-| Secret Manager | Encryption key + private config |
-| App Check *(optional)* | Abuse protection for the API routes |
+| App Check *(optional)* | Abuse protection for `/api/feedback` |
 | Firebase App Hosting **or** Cloud Run | Serve the Next.js app |
 
 ### Tools
@@ -174,75 +170,41 @@ NEXT_PUBLIC_FIREBASE_APP_ID=1:000000000000:web:abc123
 
 `npm run dev` now shows a **Sign in** button and syncs progress to Firestore.
 
-## Step 6 — Gemini API & recommended models
+## Step 6 — Explanations & audio (no keys needed)
 
-The app uses Gemini for **text explanations**; audio is either pre-generated
-(owner) or generated on demand with the **user's own key**.
+Every question ships with a bundled explanation, and **"Explain in Audio"** reads
+it aloud on-device with the browser's Web Speech API — **no Gemini key, no API
+routes, no server calls, works offline**. English is per-question; Bengali and
+Spanish are topic-level.
 
-**Get a key** at <https://aistudio.google.com/apikey> (Gemini Developer API —
-simplest). For enterprise scale, use Vertex AI instead. End users paste their
-own key in **Settings**; you also need an owner key for the pre-generation step.
-
-**Best models** (set with `GEMINI_TEXT_MODEL`; verify current ids at
-<https://ai.google.dev/gemini-api/docs/models>):
-
-| Use | Recommended | Why |
-|---|---|---|
-| **Explaining questions (text)** | `gemini-2.5-flash` | Best balance of quality, speed, and cost for short 2–3 sentence explanations. Multilingual. |
-| Maximum-quality explanations | `gemini-2.5-pro` | Higher reasoning quality; slower and pricier. |
-| **On-demand audio (BYO key)** | `gemini-2.5-flash-preview-tts` | Native multilingual text-to-speech that works with a Gemini Developer API key. |
-| **Best cached audio (owner)** | **Google Cloud TTS — Chirp 3: HD voices** | Most natural neural voices; strong `en-US`, `hi-IN`, `bn-IN`, `es-US/es-ES` support. |
-
-How audio works today: the app speaks the cached/AI **text** via the browser's
-speech engine. For **high-fidelity neural audio files**, generate them in the
-pre-generation step with Cloud TTS (Chirp 3 HD) and store the URLs — see Step 10
-and [AUDIO_SETUP.md](AUDIO_SETUP.md). Verify Cloud TTS voices at
-<https://cloud.google.com/text-to-speech/docs/chirp3-hd>.
-
-## Step 7 — Encryption key & secrets
-
-Each user's Gemini key is stored **AES-256-GCM-encrypted**. Generate a 32-byte
-master key and put it (and your owner Gemini key) in Secret Manager:
+To regenerate or expand the bundled text, an owner can run the build-time scripts
+with a Gemini key ([aistudio.google.com/apikey](https://aistudio.google.com/apikey)).
+This is optional and never runs in production:
 
 ```bash
-# 32-byte hex master key
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-
-printf '%s' 'PASTE_THE_HEX' | gcloud secrets create gemini-key-encryption-key --data-file=-
-printf '%s' 'AIza_OWNER_KEY' | gcloud secrets create gemini-owner-key       --data-file=-
+GEMINI_API_KEY=AIza... npx tsx scripts/generate-detailed.ts       # per-question English
+GEMINI_API_KEY=AIza... npx tsx scripts/translate-explanations.ts  # Bengali / Spanish
 ```
 
-## Step 8 — App Check (recommended before public launch)
+They only write the committed JSON in `src/data/explanations/`; the app reads it
+offline at runtime.
+
+## Step 7 — App Check (optional, recommended before public launch)
 
 1. Console → **Build → App Check** → register the web app with **reCAPTCHA
    Enterprise**; copy the **site key**.
 2. Set `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` (the client auto-attaches a token).
-3. Set `APP_CHECK_REQUIRED=true` to enforce it on `/api/key` and `/api/explain`.
+3. Set `APP_CHECK_REQUIRED=true` to enforce it on `/api/feedback`.
 4. In App Check settings, set Firestore/Auth to **Enforced** when ready.
 
-## Step 9 — Deploy the Firestore security rules
+## Step 8 — Deploy the Firestore security rules
 
 ```bash
 firebase deploy --only firestore:rules
 npm run test:rules      # optional: verify the rules locally first
 ```
 
-## Step 10 — Pre-generate cached explanations (owner, one-time)
-
-Fills `audio/{id}` so default-language explanations are free for everyone:
-
-```bash
-GEMINI_API_KEY=AIza_OWNER_KEY \
-GEMINI_TEXT_MODEL=gemini-2.5-flash \
-FIREBASE_SERVICE_ACCOUNT="$(cat service-account.json)" \
-npx tsx scripts/generate-explanations.ts          # add --missing on re-runs
-```
-
-> ~1,000 questions × 4 languages ≈ 4,000 model calls — **set a billing budget
-> first** (Step 12). To also produce neural **audio files**, extend the script
-> to call Cloud TTS (Chirp 3 HD) and store the audio URLs alongside the text.
-
-## Step 11 — Deploy the app
+## Step 9 — Deploy the app
 
 ### Option A — Firebase App Hosting (recommended, push-to-deploy)
 
@@ -276,18 +238,16 @@ docker build -t $REPO/app:latest \
   --build-arg NEXT_PUBLIC_RECAPTCHA_SITE_KEY=optional-site-key .
 docker push $REPO/app:latest
 
-# 3. A runtime service account with Firestore + Secret access
+# 3. A runtime service account with Firestore access
 gcloud iam service-accounts create dmv-run
 SA=dmv-run@PROJECT_ID.iam.gserviceaccount.com
 gcloud projects add-iam-policy-binding PROJECT_ID --member="serviceAccount:$SA" --role="roles/datastore.user"
-gcloud secrets add-iam-policy-binding gemini-key-encryption-key --member="serviceAccount:$SA" --role="roles/secretmanager.secretAccessor"
 
 # 4. Deploy
 gcloud run deploy dmv-app \
   --image $REPO/app:latest --region $REGION --allow-unauthenticated \
   --service-account $SA \
-  --set-env-vars FIREBASE_ADMIN_ENABLED=true,GEMINI_TEXT_MODEL=gemini-2.5-flash,APP_CHECK_REQUIRED=true \
-  --set-secrets GEMINI_KEY_ENCRYPTION_KEY=gemini-key-encryption-key:latest
+  --set-env-vars FIREBASE_ADMIN_ENABLED=true
 ```
 
 Then add the Cloud Run URL to **Authentication → Authorized domains**.
@@ -322,28 +282,28 @@ jobs:
 Gate it behind CI by requiring the `test` and `rules` checks in branch
 protection (GitHub → Settings → Branches).
 
-## Step 12 — Budgets, branch protection, smoke test
+## Step 10 — Budgets, branch protection, smoke test
 
 - **Budget alerts:** Google Cloud Console → **Billing → Budgets & alerts** →
   create a budget with 50/90/100% email alerts.
 - **Branch protection:** require the `test` and `rules` CI checks before merging
   to `main` so only green code deploys.
 - **Smoke test:** open the deployed URL → take a test as a guest → sign in →
-  confirm progress syncs → in Settings, add a Gemini key → use "Explain in
-  Audio" with the "Other…" language.
+  confirm progress syncs across devices → use "Explain in Audio" (offline, no
+  key needed).
 
 ## Environment variables reference
 
 | Variable | Scope | Required for |
 |---|---|---|
 | `NEXT_PUBLIC_FIREBASE_*` (6) | build + runtime | Accounts & sync |
+| `NEXT_PUBLIC_SITE_URL` | build + runtime | Canonical/OG/sitemap URLs (SEO) |
 | `NEXT_PUBLIC_FIREBASE_EMULATOR` | build + runtime | Local emulator dev (`true`) |
-| `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` | build + runtime | App Check (client) |
-| `FIREBASE_ADMIN_ENABLED` / `FIREBASE_SERVICE_ACCOUNT` / `GOOGLE_APPLICATION_CREDENTIALS` | runtime (server) | AI routes (Admin SDK) |
-| `GEMINI_KEY_ENCRYPTION_KEY` | runtime (server) | Encrypting users' Gemini keys |
-| `GEMINI_TEXT_MODEL` | runtime (server) | Override the Gemini model |
-| `APP_CHECK_REQUIRED` | runtime (server) | Enforce App Check on API routes |
-| `GEMINI_API_KEY` / `FIREBASE_SERVICE_ACCOUNT` | script only | `generate-explanations.ts` |
+| `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` | build + runtime | App Check (client, optional) |
+| `FIREBASE_ADMIN_ENABLED` / `FIREBASE_SERVICE_ACCOUNT` / `GOOGLE_APPLICATION_CREDENTIALS` | runtime (server) | `/api/feedback` (Admin SDK) |
+| `APP_CHECK_REQUIRED` | runtime (server) | Enforce App Check on `/api/feedback` |
+| `RESEND_API_KEY` / `FEEDBACK_TO` / `FEEDBACK_FROM` | runtime (server) | Feedback emails |
+| `GEMINI_API_KEY` | script only | `generate-detailed.ts` / `translate-explanations.ts` |
 
 `NEXT_PUBLIC_*` values are inlined into the client bundle at build time; all
 others are server-only and must never be `NEXT_PUBLIC_`.
@@ -354,20 +314,21 @@ others are server-only and must never be `NEXT_PUBLIC_`.
 
 ```
 src/
-  app/                 # routes: / · /test · /test/review · /road-test · /settings · /api/{key,explain}
+  app/                 # routes: / · /test · /test/review · /road-test · /settings · /api/feedback
   components/          # SiteHeader, TestRunner, Diagram, AudioExplain, AccountMenu, ...
   data/
     questions/         # provenance-tagged bank (official + generated + authored) + validate
+    explanations/      # bundled en/bn/es explanation text + per-question JSON overrides
     roadTest.ts        # DL-80 road-test content
   lib/
     engine/            # profiles, sampler, scoring, seedable RNG (+ tests)
     progress/          # local store + cloud sync provider + analytics engine (gamification) + test history
     firebase/          # config (env-driven), auth context, App Check
-    server/            # crypto, usage caps, admin, genai (route helpers, + tests)
+    server/            # admin (Firebase Admin for /api/feedback)
     roadtest/          # self-assessment store (+ tests)
 e2e/                   # Playwright specs
 firebase-test/         # Firestore rules tests (emulator)
-scripts/               # generate-explanations.ts (owner-run) · generate-icons.mjs
+scripts/               # generate-detailed.ts / translate-explanations.ts (owner-run) · generate-icons.mjs
 android/               # Trusted Web Activity config (twa-manifest.json) + build/deploy guide
 Dockerfile, apphosting.yaml, firestore.rules, firebase.json
 ```

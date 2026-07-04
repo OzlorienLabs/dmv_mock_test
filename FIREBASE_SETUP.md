@@ -76,7 +76,7 @@ npm run test:rules
 ## C. Hardening before launch (later phases)
 
 - **App Check** (reCAPTCHA Enterprise) to reject non-app traffic — Build → App
-  Check. Required before exposing the bring-your-own Gemini-key endpoint.
+  Check. Optional; protects Firestore and the `/api/feedback` route from abuse.
 - **Budget alerts** — Google Cloud Console → Billing → Budgets & alerts.
 - **App Hosting CI/CD** — Build → App Hosting → connect this GitHub repo for
   push-to-deploy (Phase 6). Set the `NEXT_PUBLIC_FIREBASE_*` values as App

@@ -25,12 +25,12 @@ Set these as App Hosting env / Secret Manager (see `apphosting.yaml`):
 - Public web config: `NEXT_PUBLIC_FIREBASE_*` (BUILD + RUNTIME). Put the API key
   in Secret Manager (`firebase-web-api-key`).
 - `FIREBASE_ADMIN_ENABLED=true` — App Hosting runs on Cloud Run with Application
-  Default Credentials, so `firebase-admin` needs no key file.
-- `GEMINI_KEY_ENCRYPTION_KEY` — 32-byte hex, in Secret Manager
-  (`gemini-key-encryption-key`). Generate:
-  `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
+  Default Credentials, so `firebase-admin` (used by `/api/feedback`) needs no
+  key file.
+- Feedback email (optional): `RESEND_API_KEY`, `FEEDBACK_TO`, `FEEDBACK_FROM`.
 
-Grant the App Hosting service account `roles/secretmanager.secretAccessor`.
+If you reference any Secret Manager secrets, grant the App Hosting service
+account `roles/secretmanager.secretAccessor`.
 
 Then deploy the Firestore rules once:
 
@@ -38,23 +38,22 @@ Then deploy the Firestore rules once:
 npx firebase deploy --only firestore:rules
 ```
 
-## 4. App Check (recommended before public launch)
+## 4. App Check (optional)
 
-Protects Auth/Firestore and the bring-your-own-key API routes from abuse.
+Protects Auth/Firestore and the `/api/feedback` route from abuse.
 
 1. Firebase Console → **Build → App Check** → register the web app with
    **reCAPTCHA Enterprise**; create a key and copy the **site key**.
 2. Set `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` (BUILD + RUNTIME) — the client then
    initializes App Check automatically and attaches a token to API calls.
 3. Set `APP_CHECK_REQUIRED=true` (RUNTIME) to **enforce** App Check on
-   `/api/key` and `/api/explain` (they return 401 without a valid token).
+   `/api/feedback` (it returns 401 without a valid token).
 4. In App Check settings, set Firestore/Auth to **Enforced** when ready.
 
 ## 5. Budget alerts
 
 Google Cloud Console → **Billing → Budgets & alerts** → create a budget with
-email alerts (e.g. 50/90/100%). Also advise BYO-key users (they already see this
-in Settings) to set a per-day quota on their Gemini key in Google AI Studio.
+email alerts (e.g. 50/90/100%).
 
 ## 6. PWA / offline
 

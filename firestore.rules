@@ -10,10 +10,6 @@ service cloud.firestore {
     match /mockTests/{id}    { allow read: if true; allow write: if false; }
     match /roadTestGuide/{id} { allow read: if true; allow write: if false; }
 
-    // Pre-generated explanation text/audio (public read; written by the
-    // owner-run generation script via the Admin SDK).
-    match /audio/{id} { allow read: if true; allow write: if false; }
-
     // Per-user data: only the authenticated owner may read or write.
     match /users/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
@@ -24,17 +20,6 @@ service cloud.firestore {
       match /progress/{category} {
         allow read, write: if request.auth != null && request.auth.uid == uid;
       }
-      // Usage counters: owner may read; only the server (Admin SDK) writes.
-      match /usage/{doc} {
-        allow read: if request.auth != null && request.auth.uid == uid;
-        allow write: if false;
-      }
-    }
-
-    // Encrypted Gemini keys: never accessible from the client. The server
-    // (Admin SDK) bypasses these rules.
-    match /userSecrets/{uid} {
-      allow read, write: if false;
     }
 
     // Feedback submissions: written only by the server (/api/feedback via the

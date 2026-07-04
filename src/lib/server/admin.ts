@@ -6,14 +6,13 @@ import {
   type App,
 } from "firebase-admin/app";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
-import { getAuth } from "firebase-admin/auth";
 import { getAppCheck } from "firebase-admin/app-check";
 
 /**
- * Server-side Firebase Admin. Used by the AI route handlers to verify the
- * caller's Firebase ID token and to read/write user data (the encrypted Gemini
- * key, usage counters). Initialized only when credentials are configured;
- * otherwise the routes degrade to a clear "not configured" response.
+ * Server-side Firebase Admin. Used by the /api/feedback route to store
+ * submissions and (optionally) verify App Check. Initialized only when
+ * credentials are configured; otherwise callers degrade to a clear
+ * "not configured" response.
  *
  * Credentials, in order of preference:
  *   - FIREBASE_SERVICE_ACCOUNT  (full service-account JSON, e.g. from Secret Manager)
@@ -49,25 +48,6 @@ export function getAdminApp(): App | null {
 export function getAdminDb(): Firestore | null {
   const a = getAdminApp();
   return a ? getFirestore(a) : null;
-}
-
-/** Verify a "Bearer <idToken>" header and return the uid, or null. */
-export async function verifyRequestUid(
-  authHeader: string | null,
-): Promise<string | null> {
-  const a = getAdminApp();
-  if (!a || !authHeader?.startsWith("Bearer ")) return null;
-  try {
-    const decoded = await getAuth(a).verifyIdToken(authHeader.slice(7));
-    return decoded.uid;
-  } catch {
-    return null;
-  }
-}
-
-/** 32-byte hex master key used to encrypt the user's Gemini key at rest. */
-export function encryptionKey(): string | null {
-  return process.env.GEMINI_KEY_ENCRYPTION_KEY || null;
 }
 
 /**

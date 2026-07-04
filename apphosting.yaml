@@ -39,22 +39,15 @@ env:
   #   value: your-recaptcha-site-key
   #   availability: [BUILD, RUNTIME]
 
-  # --- Server-only (for the bring-your-own-key AI routes) ---
+  # --- Server-only: Firebase Admin (used by /api/feedback to store submissions).
   # App Hosting runs on Cloud Run with Application Default Credentials, so
   # firebase-admin works without a key file:
   - variable: FIREBASE_ADMIN_ENABLED
     value: "true"
     availability: [RUNTIME]
-  # 32-byte hex key that encrypts each user's Gemini key (store in Secret Manager):
-  - variable: GEMINI_KEY_ENCRYPTION_KEY
-    secret: gemini-key-encryption-key
-    availability: [RUNTIME]
-  # Enforce App Check on the API routes once App Check is set up:
+  # Enforce App Check on the /api/feedback route once App Check is set up:
   # - variable: APP_CHECK_REQUIRED
   #   value: "true"
-  #   availability: [RUNTIME]
-  # - variable: GEMINI_TEXT_MODEL
-  #   value: gemini-2.5-flash
   #   availability: [RUNTIME]
 
   # --- Android TWA: Digital Asset Links (served at /.well-known/assetlinks.json)
