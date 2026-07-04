@@ -4,6 +4,10 @@ import {
   getAttempts,
   clearAttempts,
   deleteAttempt,
+  getDeletedIds,
+  addDeletedIds,
+  setDeletedIds,
+  withoutDeleted,
   mergeAttempts,
   summarize,
   getSummary,
@@ -30,7 +34,10 @@ function attempt(partial: Partial<StoredAttempt> = {}): StoredAttempt {
 }
 
 describe("progress store", () => {
-  beforeEach(() => clearAttempts());
+  beforeEach(() => {
+    clearAttempts();
+    setDeletedIds([]);
+  });
 
   it("saves and reads attempts (most recent first)", () => {
     saveAttempt(attempt({ id: "a" }));
@@ -78,12 +85,13 @@ describe("progress store", () => {
     expect(getSummary().attempts).toBe(1);
   });
 
-  it("deletes a single attempt by id, leaving the rest", () => {
+  it("deletes a single attempt by id, leaving the rest, and tombstones it", () => {
     saveAttempt(attempt({ id: "a" }));
     saveAttempt(attempt({ id: "b" }));
     saveAttempt(attempt({ id: "c" }));
     deleteAttempt("b");
     expect(getAttempts().map((a) => a.id)).toEqual(["c", "a"]);
+    expect(getDeletedIds()).toContain("b");
   });
 
   it("deleting a non-existent id is a no-op", () => {
@@ -100,6 +108,40 @@ describe("progress store", () => {
     expect(all.length).toBe(100);
     // Most recent should be first
     expect(all[0].id).toBe("a-104");
+  });
+});
+
+describe("tombstones (deleted ids)", () => {
+  beforeEach(() => setDeletedIds([]));
+
+  it("unions and de-duplicates ids", () => {
+    addDeletedIds(["a", "b"]);
+    addDeletedIds(["b", "c"]);
+    expect(getDeletedIds().sort()).toEqual(["a", "b", "c"]);
+  });
+
+  it("caps the tombstone set (keeps the most recent)", () => {
+    const many = Array.from({ length: 1200 }, (_, i) => `id-${i}`);
+    setDeletedIds(many);
+    const stored = getDeletedIds();
+    expect(stored.length).toBe(1000);
+    expect(stored).toContain("id-1199");
+    expect(stored).not.toContain("id-0");
+  });
+
+  it("withoutDeleted drops tombstoned attempts and keeps the rest", () => {
+    const attempts = [attempt({ id: "keep" }), attempt({ id: "gone" })];
+    const filtered = withoutDeleted(attempts, ["gone"]);
+    expect(filtered.map((a) => a.id)).toEqual(["keep"]);
+  });
+
+  it("a tombstoned id survives merge but is then removed by withoutDeleted", () => {
+    // Simulates: device A deleted "x" (tombstone), device B's cloud still has it.
+    const local = [attempt({ id: "y" })];
+    const cloudStillHasX = [attempt({ id: "x" }), attempt({ id: "y" })];
+    const merged = mergeAttempts(local, cloudStillHasX);
+    expect(merged.map((a) => a.id).sort()).toEqual(["x", "y"]);
+    expect(withoutDeleted(merged, ["x"]).map((a) => a.id)).toEqual(["y"]);
   });
 });
 

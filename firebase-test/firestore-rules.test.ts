@@ -37,6 +37,17 @@ describe("firestore security rules", () => {
     await assertSucceeds(getDoc(ref));
   });
 
+  it("lets a user read/write their own users/{uid} doc (tombstones) but not others'", async () => {
+    const alice = env.authenticatedContext("alice").firestore();
+    await assertSucceeds(
+      setDoc(doc(alice, "users/alice"), { deletedAttemptIds: ["x"] }),
+    );
+    await assertSucceeds(getDoc(doc(alice, "users/alice")));
+    const bob = env.authenticatedContext("bob").firestore();
+    await assertFails(setDoc(doc(bob, "users/alice"), { deletedAttemptIds: ["y"] }));
+    await assertFails(getDoc(doc(bob, "users/alice")));
+  });
+
   it("blocks reading another user's attempts", async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), "users/alice/attempts/a1"), { id: "a1" });

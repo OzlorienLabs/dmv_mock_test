@@ -68,11 +68,56 @@ export function clearAttempts(): void {
   window.localStorage.removeItem(KEY);
 }
 
-/** Remove a single attempt from on-device history. */
+/** Remove a single attempt from on-device history and tombstone its id. */
 export function deleteAttempt(id: string): void {
   if (!isBrowser()) return;
   const remaining = getAttempts().filter((a) => a.id !== id);
   window.localStorage.setItem(KEY, JSON.stringify(remaining));
+  addDeletedIds([id]);
+}
+
+/**
+ * Tombstones — ids of attempts the user has deleted. Persisted (and synced to
+ * the cloud) so a deletion propagates across devices and a deleted attempt is
+ * never re-added by a merge/re-push from another device that still has it.
+ */
+const DELETED_KEY = "dmv:deleted:v1";
+const DELETED_CAP = 1000;
+
+export function getDeletedIds(): string[] {
+  if (!isBrowser()) return [];
+  try {
+    const raw = window.localStorage.getItem(DELETED_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Union `ids` into the on-device tombstone set; returns the full set. */
+export function addDeletedIds(ids: string[]): string[] {
+  const merged = setDeletedIds([...getDeletedIds(), ...ids]);
+  return merged;
+}
+
+/** Replace the on-device tombstone set (de-duped, capped); returns it. */
+export function setDeletedIds(ids: string[]): string[] {
+  const unique = [...new Set(ids)].slice(-DELETED_CAP);
+  if (isBrowser()) {
+    window.localStorage.setItem(DELETED_KEY, JSON.stringify(unique));
+  }
+  return unique;
+}
+
+/** Drop any attempts whose id has been tombstoned. */
+export function withoutDeleted(
+  attempts: StoredAttempt[],
+  deletedIds: Iterable<string>,
+): StoredAttempt[] {
+  const gone = new Set(deletedIds);
+  return attempts.filter((a) => !gone.has(a.id));
 }
 
 /**

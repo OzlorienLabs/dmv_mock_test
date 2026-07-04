@@ -5,7 +5,6 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -13,17 +12,20 @@ import { useAuth } from "@/lib/firebase/auth";
 import {
   deleteAttempt,
   getAttempts,
+  getDeletedIds,
   mergeAttempts,
   saveAttempt,
+  setDeletedIds,
   summarize,
+  withoutDeleted,
   type ProgressSummary,
   type StoredAttempt,
 } from "./store";
 import {
   cloudDeleteAttempt,
   cloudGetAttempts,
-  cloudMigrateLocal,
   cloudSaveAttempt,
+  cloudSync,
 } from "./cloud";
 
 interface ProgressContextValue {
@@ -49,7 +51,6 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   const [attempts, setAttempts] = useState<StoredAttempt[]>([]);
   const [loading, setLoading] = useState(true);
   const [cloudError, setCloudError] = useState(false);
-  const migratedFor = useRef<string | null>(null);
 
   // A real (non-anonymous) signed-in user syncs to the cloud; everyone else
   // uses on-device storage.
@@ -59,21 +60,26 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     if (cloudActive && uid) {
       try {
-        // Re-push anything on this device that isn't in the cloud yet (self-heals
-        // a write that failed earlier), then pull the merged set.
-        const cloudAll = await cloudMigrateLocal(uid, getAttempts());
-        const all = mergeAttempts(getAttempts(), cloudAll);
+        // Two-way reconcile: pushes anything this device is missing from the
+        // cloud (self-heals failed writes) and propagates tombstones, so a
+        // deletion made anywhere sticks instead of coming back.
+        const { attempts: all, deleted } = await cloudSync(
+          uid,
+          getAttempts(),
+          getDeletedIds(),
+        );
+        setDeletedIds(deleted);
         setAttempts(all);
         setSummary(summarize(all));
         setCloudError(false);
       } catch {
-        const localOnly = getAttempts();
+        const localOnly = withoutDeleted(getAttempts(), getDeletedIds());
         setAttempts(localOnly);
         setSummary(summarize(localOnly));
         setCloudError(true);
       }
     } else {
-      const all = getAttempts();
+      const all = withoutDeleted(getAttempts(), getDeletedIds());
       setAttempts(all);
       setSummary(summarize(all));
     }
@@ -85,39 +91,33 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       try {
         if (cloudActive && uid) {
-          // On first sign-in, migrate returns the merged cloud set so we don't
-          // issue a second read; afterwards just read. Merge with local so an
-          // attempt just saved on this device — but not yet in this cloud read
-          // (e.g. a test finished while this load was in flight) — is never
-          // dropped, which otherwise made a just-taken test disappear from
-          // history until a full refresh.
-          let cloudAll: StoredAttempt[];
-          if (migratedFor.current !== uid) {
-            cloudAll = await cloudMigrateLocal(uid, getAttempts());
-            migratedFor.current = uid;
-          } else {
-            cloudAll = await cloudGetAttempts(uid);
-          }
-          const all = mergeAttempts(getAttempts(), cloudAll);
+          // Reconcile with the cloud (idempotent): merges local so a just-taken
+          // test is never dropped by a lagging read, and honors tombstones so a
+          // test deleted on another device stays deleted.
+          const { attempts: all, deleted } = await cloudSync(
+            uid,
+            getAttempts(),
+            getDeletedIds(),
+          );
           if (!cancelled) {
+            setDeletedIds(deleted);
             setAttempts(all);
             setSummary(summarize(all));
             setCloudError(false);
           }
         } else {
           if (!cancelled) {
-            const all = getAttempts();
+            const all = withoutDeleted(getAttempts(), getDeletedIds());
             setAttempts(all);
             setSummary(summarize(all));
           }
         }
       } catch {
-        // Cloud read/migrate failed (offline, permissions, App Check, transient).
-        // Without this catch the error was unhandled and cloud data never
-        // rendered — leaving the dashboard blank on another device. Fall back to
-        // on-device history and flag the sync error so the user can retry.
+        // Cloud read failed (offline, permissions, App Check, transient). Fall
+        // back to on-device history and flag the sync error so the user can
+        // retry — without this catch the dashboard was blank on another device.
         if (!cancelled) {
-          const localOnly = getAttempts();
+          const localOnly = withoutDeleted(getAttempts(), getDeletedIds());
           setAttempts(localOnly);
           setSummary(summarize(localOnly));
           if (cloudActive && uid) setCloudError(true);
@@ -150,7 +150,10 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         void (async () => {
           try {
             await cloudSaveAttempt(uid, attempt);
-            const merged = mergeAttempts(getAttempts(), await cloudGetAttempts(uid));
+            const merged = withoutDeleted(
+              mergeAttempts(getAttempts(), await cloudGetAttempts(uid)),
+              getDeletedIds(),
+            );
             setAttempts(merged);
             setSummary(summarize(merged));
             setCloudError(false);
@@ -167,7 +170,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
   const removeAttempt = useCallback(
     async (id: string) => {
-      // Remove on-device and from the UI immediately.
+      // Remove on-device (this also tombstones the id) and update the UI now.
       deleteAttempt(id);
       const remaining = attempts.filter((a) => a.id !== id);
       setAttempts(remaining);
@@ -175,17 +178,18 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
       // Delete from the cloud in the BACKGROUND — never block the caller (or the
       // review screen's navigation) on the round-trip, which is what made
-      // signed-in removal appear to hang.
+      // signed-in removal appear to hang. cloudDeleteAttempt also writes a
+      // tombstone so the deletion propagates to other devices.
       if (cloudActive && uid) {
         void (async () => {
           try {
             await cloudDeleteAttempt(uid, id);
-            // Reconcile with the cloud, but never let the just-deleted id come
-            // back from a lagging read.
-            const merged = mergeAttempts(
-              getAttempts(),
-              await cloudGetAttempts(uid),
-            ).filter((a) => a.id !== id);
+            // Reconcile, honoring tombstones so the deleted id can't come back
+            // from a lagging read.
+            const merged = withoutDeleted(
+              mergeAttempts(getAttempts(), await cloudGetAttempts(uid)),
+              getDeletedIds(),
+            );
             setAttempts(merged);
             setSummary(summarize(merged));
             setCloudError(false);
