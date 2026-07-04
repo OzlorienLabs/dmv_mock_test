@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "demo-dmv-mock-test"
+    "default": "demo-dmv-mock-test",
+    "prod": "driver-license-test-802b8"
   }
 }
