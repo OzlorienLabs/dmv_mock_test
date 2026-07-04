@@ -199,10 +199,18 @@ offline at runtime.
 3. Set `APP_CHECK_REQUIRED=true` to enforce it on `/api/feedback`.
 4. In App Check settings, set Firestore/Auth to **Enforced** when ready.
 
-## Step 8 — Deploy the Firestore security rules
+## Step 8 — Publish the Firestore security rules (REQUIRED)
+
+Without this, a new database denies all reads/writes, so **signed-in progress
+silently fails to save**. Either:
+
+- **Console:** Firestore Database → **Rules** tab → paste
+  [`firestore.rules`](firestore.rules) → **Publish** (no CLI needed).
+- **CLI:** `firebase deploy --only firestore:rules --project YOUR_PROJECT_ID`
+  — pass `--project` because `.firebaserc`'s default is the emulator id
+  `demo-dmv-mock-test`, not your project.
 
 ```bash
-firebase deploy --only firestore:rules
 npm run test:rules      # optional: verify the rules locally first
 ```
 

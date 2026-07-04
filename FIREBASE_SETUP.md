@@ -10,7 +10,8 @@ no cost) and only create a real project when you're ready to deploy.
 
 ## A. Local development with the emulator (no cloud account)
 
-Prereqs: Node 20+ and Java 11+ (for the Firestore/Auth emulators).
+Prereqs: Node 20+ and Java 21+ (firebase-tools requires JDK 21+ for the
+Firestore/Auth emulators).
 
 ```bash
 # 1. Start the emulators (Auth on :9099, Firestore on :8080, UI on :4000)
@@ -58,17 +59,28 @@ npm run test:rules
    ```
    (Leave `NEXT_PUBLIC_FIREBASE_EMULATOR` unset for real cloud use.)
 
-5. **Point the CLI at your project** — replace the id in `.firebaserc`:
-   ```bash
-   npx firebase use --add   # pick your project, alias it "default"
-   ```
+5. **Publish the Firestore security rules — REQUIRED.** A new database denies
+   all reads/writes (production mode) or expires (test mode), so **signed-in
+   progress will silently fail to save until you publish the app's rules.** Two
+   ways — either works:
 
-6. **Deploy the security rules**:
-   ```bash
-   npx firebase deploy --only firestore:rules
-   ```
+   **A. In the Firebase console (no CLI needed — recommended if you deploy via
+   App Hosting/GitHub):** Firestore Database → **Rules** tab → replace the
+   contents with the app's [`firestore.rules`](firestore.rules) → **Publish**.
 
-7. **Authorize your domain** — Authentication → Settings → **Authorized
+   **B. Via the CLI:** point it at your *real* project, then deploy:
+   ```bash
+   npx firebase use --add   # pick your project (alias it, e.g. "prod")
+   npx firebase deploy --only firestore:rules --project YOUR_PROJECT_ID
+   ```
+   > ⚠️ `.firebaserc`'s `default` is the emulator id `demo-dmv-mock-test`, so a
+   > plain `firebase deploy` goes to the demo project, **not** yours. Always pass
+   > `--project YOUR_PROJECT_ID` (or `firebase use` your project first).
+
+   Verify: Firestore → **Rules** shows the owner-scoped rules; then sign in,
+   finish a test, and a `users/{uid}/attempts/{id}` document appears.
+
+6. **Authorize your domain** — Authentication → Settings → **Authorized
    domains** → add your production domain (localhost is allowed by default).
 
 ---
