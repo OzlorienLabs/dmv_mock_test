@@ -64,7 +64,7 @@ export default function Home() {
         <ModeCard
           href="/leaderboard"
           title="🏆 Leaderboard"
-          desc="See how you rank against other drivers by unique questions answered correctly. Sign in to join."
+          desc="See the top drivers ranked by unique questions answered correctly. Sign in to join and track your rank."
         />
       </section>
 

@@ -48,25 +48,25 @@ describe("firestore security rules", () => {
     await assertFails(getDoc(doc(bob, "users/alice")));
   });
 
-  it("leaderboard: owner writes own entry, any signed-in user reads, others can't write", async () => {
+  it("leaderboard: owner writes own entry, others can't write it", async () => {
     const alice = env.authenticatedContext("alice").firestore();
     // Owner can publish their own leaderboard entry.
     await assertSucceeds(
       setDoc(doc(alice, "leaderboard/alice"), { uid: "alice", name: "Alice", score: 12 }),
     );
-    // Any signed-in user can read the board (including other users' entries).
+    // Another signed-in user cannot write to someone else's entry.
     const bob = env.authenticatedContext("bob").firestore();
-    await assertSucceeds(getDoc(doc(bob, "leaderboard/alice")));
-    // But cannot write to someone else's entry.
     await assertFails(setDoc(doc(bob, "leaderboard/alice"), { score: 999 }));
   });
 
-  it("leaderboard: unauthenticated users can neither read nor write", async () => {
+  it("leaderboard: anyone (even unauthenticated) can read, but not write", async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), "leaderboard/alice"), { uid: "alice", score: 5 });
     });
     const anon = env.unauthenticatedContext().firestore();
-    await assertFails(getDoc(doc(anon, "leaderboard/alice")));
+    // Public read — the board is visible to guests as a sign-in hook.
+    await assertSucceeds(getDoc(doc(anon, "leaderboard/alice")));
+    // But a guest can't write any entry.
     await assertFails(setDoc(doc(anon, "leaderboard/anon"), { score: 1 }));
   });
 

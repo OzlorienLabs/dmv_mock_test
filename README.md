@@ -44,9 +44,11 @@ and AI audio explanations in multiple languages.
   one right and it counts; miss it on your latest try and it drops off). Scores
   are computed on-device and published to a public, owner-written
   `leaderboard/{uid}` collection (no server aggregation), so the board is shared
-  without exposing anyone's private history. The page shows the **top 10** plus
-  **your own rank** when you're below it. You're listed by default; a toggle in
-  **Settings** opts out (and removes your entry), synced across devices.
+  without exposing anyone's private history. The board is **publicly viewable**
+  (guests see the top 10 too — a hook to sign in and join), and a signed-in user
+  also sees **their own rank** when they're below the top 10. You're listed by
+  default; a toggle in **Settings** opts out (and removes your entry), synced
+  across devices.
 - **Detailed multilingual explanations + offline audio** — every question has a
   detailed explanation in **English, Bengali, and Spanish**, bundled in the app
   and read aloud **entirely on-device** (Web Speech API, no server, no keys,

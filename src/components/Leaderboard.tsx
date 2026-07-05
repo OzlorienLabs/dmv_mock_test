@@ -18,8 +18,9 @@ type Status = "loading" | "ready" | "error";
 /**
  * Global leaderboard: the top 10 players by number of unique questions answered
  * correctly, plus — when the signed-in user ranks below the top 10 — a row
- * showing their own position. Only signed-in users can view or join the board;
- * joining is on by default and can be turned off in Settings.
+ * showing their own position. The board is PUBLIC (guests see it too, as a
+ * sign-in hook); only signed-in users are listed and get a personal rank.
+ * Joining is on by default and can be turned off in Settings.
  */
 export function Leaderboard() {
   const { enabled, loading: authLoading, user } = useAuth();
@@ -34,18 +35,17 @@ export function Leaderboard() {
   const [myRank, setMyRank] = useState<number | null>(null);
 
   const fetchBoard = useCallback(async () => {
-    if (!signedIn || !uid) return;
     setStatus("loading");
     try {
+      // The board is public: anyone (signed in or not) can see the top players.
       const rows = await cloudGetTopLeaderboard(TOP_N);
       setTop(rows);
-      const inTop = rows.findIndex((r) => r.uid === uid);
-      if (leaderboardOptOut) {
-        setMyRank(null); // Not participating.
-      } else if (inTop >= 0) {
-        setMyRank(inTop + 1); // Already visible in the list.
+      // A personal rank only exists for a signed-in, opted-in user.
+      if (signedIn && uid && !leaderboardOptOut) {
+        const inTop = rows.findIndex((r) => r.uid === uid);
+        setMyRank(inTop >= 0 ? inTop + 1 : await cloudGetLeaderboardRank(myScore));
       } else {
-        setMyRank(await cloudGetLeaderboardRank(myScore));
+        setMyRank(null);
       }
       setStatus("ready");
     } catch {
@@ -68,18 +68,9 @@ export function Leaderboard() {
   if (authLoading) {
     return <p className="text-sm text-ca-muted">Loading…</p>;
   }
-  if (!signedIn) {
-    return (
-      <Card>
-        <span className="font-semibold text-ca-ink">Sign in to compete.</span>{" "}
-        The leaderboard ranks signed-in drivers by how many unique questions
-        they&rsquo;ve answered correctly. Use the <strong>Sign in</strong> button
-        at the top right to join.
-      </Card>
-    );
-  }
 
   const showMyRow =
+    signedIn &&
     !leaderboardOptOut &&
     myRank !== null &&
     !top.some((r) => r.uid === uid); // Not already in the visible top list.
@@ -92,7 +83,20 @@ export function Leaderboard() {
         on your latest try and it drops off.
       </p>
 
-      {leaderboardOptOut && (
+      {!signedIn && (
+        <div className="rounded-xl border border-ca-blue bg-ca-blue/5 p-4">
+          <p className="text-sm font-semibold text-ca-ink">
+            Sign in to join the leaderboard.
+          </p>
+          <p className="mt-0.5 text-sm text-ca-gray">
+            {myScore > 0
+              ? `You'd enter with ${myScore} correct — sign in to claim your spot and see where you rank.`
+              : "Take a test, then sign in to appear on the board and track your rank across devices."}
+          </p>
+        </div>
+      )}
+
+      {signedIn && leaderboardOptOut && (
         <Card>
           You&rsquo;ve opted out, so you&rsquo;re not listed.{" "}
           <Link href="/settings#leaderboard" className="font-semibold text-ca-blue underline">
