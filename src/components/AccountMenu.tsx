@@ -136,6 +136,14 @@ function SignedInMenu({ user, onSignOut }: { user: User; onSignOut: () => Promis
           {!confirming ? (
             <div className="p-1.5">
               <Link
+                href="/leaderboard"
+                role="menuitem"
+                onClick={close}
+                className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-ca-bg"
+              >
+                🏆 Leaderboard
+              </Link>
+              <Link
                 href="/settings"
                 role="menuitem"
                 onClick={close}

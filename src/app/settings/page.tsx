@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useAuth } from "@/lib/firebase/auth";
 import { AccountSettings } from "@/components/AccountSettings";
+import { LeaderboardSettings } from "@/components/LeaderboardSettings";
 
 export default function SettingsPage() {
   const { enabled, loading, user } = useAuth();
@@ -33,7 +34,10 @@ export default function SettingsPage() {
           across devices.
         </p>
       ) : (
-        <AccountSettings />
+        <div className="space-y-6">
+          <AccountSettings />
+          <LeaderboardSettings />
+        </div>
       )}
     </div>
   );

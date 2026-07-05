@@ -59,6 +59,17 @@ export default function Home() {
 
       <section>
         <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-ca-muted">
+          Compete
+        </h2>
+        <ModeCard
+          href="/leaderboard"
+          title="🏆 Leaderboard"
+          desc="See how you rank against other drivers by unique questions answered correctly. Sign in to join."
+        />
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-ca-muted">
           Your progress
         </h2>
         <ProgressPanel />

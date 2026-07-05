@@ -192,3 +192,20 @@ export function questionStats(
   }
   return stats;
 }
+
+/**
+ * Leaderboard score: the number of UNIQUE questions whose most recent answer
+ * was correct, computed across the whole attempt history and question bank.
+ *
+ * Answering a question correctly more than once still counts once (dedup by
+ * question); if the latest answer to a previously-correct question is wrong,
+ * that question stops counting (so the score can go down, but never below 0).
+ * Questions never attempted don't count.
+ */
+export function leaderboardScore(attempts: StoredAttempt[]): number {
+  let score = 0;
+  for (const s of Object.values(questionStats(attempts))) {
+    if (s.lastCorrect) score += 1;
+  }
+  return score;
+}

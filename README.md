@@ -39,6 +39,14 @@ and AI audio explanations in multiple languages.
   computes a test readiness meter, displays your score trend, and highlights "trouble questions" you
   frequently miss (with in-place review). It also lists all past tests; tap "Review" to revisit
   entire exams. Works for both guests (localStorage) and signed-in users (Firestore).
+- **Global leaderboard** — signed-in drivers are ranked by the number of
+  **unique questions they've answered correctly** across the whole bank (answer
+  one right and it counts; miss it on your latest try and it drops off). Scores
+  are computed on-device and published to a public, owner-written
+  `leaderboard/{uid}` collection (no server aggregation), so the board is shared
+  without exposing anyone's private history. The page shows the **top 10** plus
+  **your own rank** when you're below it. You're listed by default; a toggle in
+  **Settings** opts out (and removes your entry), synced across devices.
 - **Detailed multilingual explanations + offline audio** — every question has a
   detailed explanation in **English, Bengali, and Spanish**, bundled in the app
   and read aloud **entirely on-device** (Web Speech API, no server, no keys,
@@ -202,7 +210,9 @@ offline at runtime.
 ## Step 8 — Publish the Firestore security rules (REQUIRED)
 
 Without this, a new database denies all reads/writes, so **signed-in progress
-silently fails to save**. Either:
+silently fails to save**. Re-publish whenever [`firestore.rules`](firestore.rules)
+changes — e.g. the `leaderboard/{uid}` collection (public-read, owner-write)
+needs the current rules or the leaderboard can't load or save. Either:
 
 - **Console:** Firestore Database → **Rules** tab → paste
   [`firestore.rules`](firestore.rules) → **Publish** (no CLI needed).

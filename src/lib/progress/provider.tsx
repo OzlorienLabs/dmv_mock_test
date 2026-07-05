@@ -8,11 +8,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { type User } from "firebase/auth";
 import { useAuth } from "@/lib/firebase/auth";
 import {
   deleteAttempt,
   getAttempts,
   getDeletedIds,
+  leaderboardScore,
   mergeAttempts,
   saveAttempt,
   setDeletedIds,
@@ -27,6 +29,47 @@ import {
   cloudSaveAttempt,
   cloudSync,
 } from "./cloud";
+import {
+  cloudGetLeaderboardOptOut,
+  cloudPublishLeaderboard,
+  cloudRemoveLeaderboard,
+  cloudSetLeaderboardOptOut,
+} from "@/lib/leaderboard/cloud";
+import {
+  getLeaderboardOptOut,
+  getPublishedSignature,
+  setLeaderboardOptOutLocal,
+  setPublishedSignature,
+} from "@/lib/leaderboard/local";
+
+/** Display name for the leaderboard: real name → email prefix → generic. */
+function leaderboardName(user: User): string {
+  return (
+    user.displayName?.trim() || user.email?.split("@")[0] || "Anonymous driver"
+  );
+}
+
+/**
+ * Publish this user's leaderboard score, but only when it (or their name/photo)
+ * changed since the last publish — keeping the public board fresh without a
+ * write on every load. A no-op when opted out. Best-effort: callers ignore
+ * failures (retried on the next change).
+ */
+async function publishScore(
+  uid: string,
+  user: User,
+  attempts: StoredAttempt[],
+  optOut: boolean,
+): Promise<void> {
+  if (optOut) return;
+  const score = leaderboardScore(attempts);
+  const name = leaderboardName(user);
+  const photoURL = user.photoURL ?? null;
+  const sig = JSON.stringify({ score, name, photoURL });
+  if (getPublishedSignature() === sig) return;
+  await cloudPublishLeaderboard(uid, { name, photoURL, score });
+  setPublishedSignature(sig);
+}
 
 interface ProgressContextValue {
   summary: ProgressSummary | null;
@@ -41,6 +84,10 @@ interface ProgressContextValue {
   /** Remove a single attempt from history (on-device + cloud when signed in). */
   removeAttempt: (id: string) => Promise<void>;
   refresh: () => Promise<void>;
+  /** Whether this user has opted OUT of the public leaderboard. */
+  leaderboardOptOut: boolean;
+  /** Opt in/out of the leaderboard (persists the preference + publishes/removes). */
+  setLeaderboardOptOut: (optOut: boolean) => Promise<void>;
 }
 
 const ProgressContext = createContext<ProgressContextValue | null>(null);
@@ -51,11 +98,41 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   const [attempts, setAttempts] = useState<StoredAttempt[]>([]);
   const [loading, setLoading] = useState(true);
   const [cloudError, setCloudError] = useState(false);
+  // Start false so SSR and first client render match; the mount effect below
+  // reads the on-device mirror, then the cloud value reconciles it on load.
+  const [leaderboardOptOut, setOptOutState] = useState(false);
 
   // A real (non-anonymous) signed-in user syncs to the cloud; everyone else
   // uses on-device storage.
   const cloudActive = Boolean(enabled && user && !user.isAnonymous);
   const uid = user?.uid ?? null;
+
+  useEffect(() => {
+    setOptOutState(getLeaderboardOptOut());
+  }, []);
+
+  /**
+   * Publish this device's score + reconcile the opt-out preference from the
+   * cloud. Isolated and best-effort so a leaderboard hiccup never blanks the
+   * dashboard or trips the progress-sync error state.
+   */
+  const syncLeaderboard = useCallback(
+    (all: StoredAttempt[]) => {
+      const u = user;
+      if (!(cloudActive && uid && u)) return;
+      void (async () => {
+        try {
+          const optOut = await cloudGetLeaderboardOptOut(uid);
+          setLeaderboardOptOutLocal(optOut);
+          setOptOutState(optOut);
+          await publishScore(uid, u, all, optOut);
+        } catch {
+          // Ignore — retried on the next sync/record.
+        }
+      })();
+    },
+    [cloudActive, uid, user],
+  );
 
   const refresh = useCallback(async () => {
     if (cloudActive && uid) {
@@ -72,6 +149,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         setAttempts(all);
         setSummary(summarize(all));
         setCloudError(false);
+        syncLeaderboard(all);
       } catch {
         const localOnly = withoutDeleted(getAttempts(), getDeletedIds());
         setAttempts(localOnly);
@@ -83,7 +161,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       setAttempts(all);
       setSummary(summarize(all));
     }
-  }, [cloudActive, uid]);
+  }, [cloudActive, uid, syncLeaderboard]);
 
   useEffect(() => {
     let cancelled = false;
@@ -104,6 +182,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
             setAttempts(all);
             setSummary(summarize(all));
             setCloudError(false);
+            syncLeaderboard(all);
           }
         } else {
           if (!cancelled) {
@@ -130,7 +209,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [cloudActive, uid]);
+  }, [cloudActive, uid, syncLeaderboard]);
 
   const recordAttempt = useCallback(
     async (attempt: StoredAttempt) => {
@@ -146,7 +225,8 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       // 2) Sync to the cloud in the BACKGROUND so nothing (incl. navigation)
       //    ever waits on the network; reconcile by merging local so a lagging
       //    read can't drop what we just saved.
-      if (cloudActive && uid) {
+      const u = user;
+      if (cloudActive && uid && u) {
         void (async () => {
           try {
             await cloudSaveAttempt(uid, attempt);
@@ -157,6 +237,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
             setAttempts(merged);
             setSummary(summarize(merged));
             setCloudError(false);
+            // Update the public leaderboard score (best-effort, no-op if opted
+            // out or unchanged since last publish).
+            void publishScore(uid, u, merged, leaderboardOptOut).catch(() => {});
           } catch {
             // Offline/transient: the local copy stands and is re-pushed on the
             // next load/refresh (or once the persistent-cache write syncs).
@@ -165,7 +248,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         })();
       }
     },
-    [cloudActive, uid, attempts],
+    [cloudActive, uid, user, attempts, leaderboardOptOut],
   );
 
   const removeAttempt = useCallback(
@@ -180,7 +263,8 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       // review screen's navigation) on the round-trip, which is what made
       // signed-in removal appear to hang. cloudDeleteAttempt also writes a
       // tombstone so the deletion propagates to other devices.
-      if (cloudActive && uid) {
+      const u = user;
+      if (cloudActive && uid && u) {
         void (async () => {
           try {
             await cloudDeleteAttempt(uid, id);
@@ -193,6 +277,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
             setAttempts(merged);
             setSummary(summarize(merged));
             setCloudError(false);
+            // Removing a test can lower the score (a question may no longer be
+            // "last correct"), so refresh the public leaderboard entry.
+            void publishScore(uid, u, merged, leaderboardOptOut).catch(() => {});
           } catch {
             // Offline/transient: local copy is already gone.
             setCloudError(true);
@@ -200,12 +287,55 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         })();
       }
     },
-    [cloudActive, uid, attempts],
+    [cloudActive, uid, user, attempts, leaderboardOptOut],
+  );
+
+  const setLeaderboardOptOut = useCallback(
+    async (optOut: boolean) => {
+      // Reflect the choice immediately on-device.
+      setLeaderboardOptOutLocal(optOut);
+      setOptOutState(optOut);
+
+      const u = user;
+      if (!(cloudActive && uid && u)) return;
+      try {
+        await cloudSetLeaderboardOptOut(uid, optOut);
+        if (optOut) {
+          // Leaving: remove the public entry and forget the published signature
+          // so re-joining re-publishes.
+          await cloudRemoveLeaderboard(uid);
+          setPublishedSignature(null);
+        } else {
+          // Joining: publish the current score right away.
+          await publishScore(
+            uid,
+            u,
+            withoutDeleted(getAttempts(), getDeletedIds()),
+            false,
+          );
+        }
+        setCloudError(false);
+      } catch {
+        setCloudError(true);
+      }
+    },
+    [cloudActive, uid, user],
   );
 
   return (
     <ProgressContext.Provider
-      value={{ summary, attempts, loading, cloudActive, cloudError, recordAttempt, removeAttempt, refresh }}
+      value={{
+        summary,
+        attempts,
+        loading,
+        cloudActive,
+        cloudError,
+        recordAttempt,
+        removeAttempt,
+        refresh,
+        leaderboardOptOut,
+        setLeaderboardOptOut,
+      }}
     >
       {children}
     </ProgressContext.Provider>

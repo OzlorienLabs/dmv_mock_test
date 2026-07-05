@@ -12,6 +12,7 @@ import {
   summarize,
   getSummary,
   questionStats,
+  leaderboardScore,
   type StoredAttempt,
 } from "./store";
 
@@ -193,5 +194,58 @@ describe("questionStats (adaptive history)", () => {
       attempt({ id: "x", answers: [{ questionId: "q9", selectedIndex: 0 }] }),
     ]);
     expect(stats.q9).toBeUndefined();
+  });
+});
+
+describe("leaderboardScore", () => {
+  it("counts unique questions whose latest answer was correct", () => {
+    const score = leaderboardScore([
+      // most-recent-first
+      attempt({ id: "b", answers: [{ questionId: "q1", selectedIndex: 0, correct: true }] }),
+      attempt({
+        id: "a",
+        answers: [
+          { questionId: "q1", selectedIndex: 1, correct: false },
+          { questionId: "q2", selectedIndex: 0, correct: true },
+        ],
+      }),
+    ]);
+    // q1 last-correct (recent), q2 correct → 2 unique correct.
+    expect(score).toBe(2);
+  });
+
+  it("counts a repeatedly-correct question only once", () => {
+    const score = leaderboardScore([
+      attempt({ id: "b", answers: [{ questionId: "q1", selectedIndex: 0, correct: true }] }),
+      attempt({ id: "a", answers: [{ questionId: "q1", selectedIndex: 0, correct: true }] }),
+    ]);
+    expect(score).toBe(1);
+  });
+
+  it("drops a question's point when the latest answer is wrong", () => {
+    const score = leaderboardScore([
+      // Latest attempt got q1 wrong after earlier getting it right.
+      attempt({ id: "b", answers: [{ questionId: "q1", selectedIndex: 2, correct: false }] }),
+      attempt({ id: "a", answers: [{ questionId: "q1", selectedIndex: 0, correct: true }] }),
+    ]);
+    expect(score).toBe(0);
+  });
+
+  it("ignores unanswered and legacy (no-correctness) answers, never goes negative", () => {
+    const score = leaderboardScore([
+      attempt({
+        id: "a",
+        answers: [
+          { questionId: "q1", selectedIndex: null }, // skipped
+          { questionId: "q2", selectedIndex: 0 }, // legacy, no `correct`
+          { questionId: "q3", selectedIndex: 1, correct: false }, // wrong
+        ],
+      }),
+    ]);
+    expect(score).toBe(0);
+  });
+
+  it("is 0 with no attempts", () => {
+    expect(leaderboardScore([])).toBe(0);
   });
 });

@@ -22,6 +22,15 @@ service cloud.firestore {
       }
     }
 
+    // Public leaderboard: one denormalized doc per opted-in user. Any signed-in
+    // user may read the board; only the owner may write (or delete, to opt out)
+    // their own entry. Scores are computed client-side, so this is a shared
+    // scoreboard, not an authoritative anti-cheat record.
+    match /leaderboard/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
     // Feedback submissions: written only by the server (/api/feedback via the
     // Admin SDK); never readable or writable by clients.
     match /feedback/{id} {
