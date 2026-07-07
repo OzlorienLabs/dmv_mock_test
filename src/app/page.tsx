@@ -2,6 +2,7 @@ import Link from "next/link";
 import { TEST_PROFILES } from "@/lib/engine/profiles";
 import { QUESTIONS } from "@/data/questions";
 import { ProgressPanel } from "@/components/ProgressPanel";
+import { LeaderboardPreview } from "@/components/LeaderboardPreview";
 import { JsonLd } from "@/components/JsonLd";
 import { FAQ, faqJsonLd } from "@/lib/seo";
 
@@ -61,11 +62,7 @@ export default function Home() {
         <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-ca-muted">
           Compete
         </h2>
-        <ModeCard
-          href="/leaderboard"
-          title="🏆 Leaderboard"
-          desc="See the top drivers ranked by unique questions answered correctly. Sign in to join and track your rank."
-        />
+        <LeaderboardPreview />
       </section>
 
       <section>

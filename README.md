@@ -46,9 +46,9 @@ and AI audio explanations in multiple languages.
   `leaderboard/{uid}` collection (no server aggregation), so the board is shared
   without exposing anyone's private history. The board is **publicly viewable**
   (guests see the top 10 too — a hook to sign in and join), and a signed-in user
-  also sees **their own rank** when they're below the top 10. You're listed by
-  default; a toggle in **Settings** opts out (and removes your entry), synced
-  across devices.
+  also sees **their own rank** when they're below the top 10. The **home page
+  embeds a live top-5 preview**. You're listed by default; a toggle in
+  **Settings** opts out (and removes your entry), synced across devices.
 - **Detailed multilingual explanations + offline audio** — every question has a
   detailed explanation in **English, Bengali, and Spanish**, bundled in the app
   and read aloud **entirely on-device** (Web Speech API, no server, no keys,
