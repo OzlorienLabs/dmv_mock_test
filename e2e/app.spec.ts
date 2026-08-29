@@ -49,6 +49,41 @@ test("complete a quick practice test, see results and progress", async ({
   await expect(page.getByText("Tests", { exact: true })).toBeVisible();
 });
 
+test("reopening a saved test from history shows the same verdicts it was scored with", async ({
+  page,
+}) => {
+  // Regression: options are shuffled per attempt, so the recorded answer index
+  // is meaningless against the bank question. Re-resolving it without replaying
+  // the shuffle reported correct answers as wrong on the review screen.
+  await page.goto("/test?profile=original&mode=practice");
+
+  for (let i = 1; i <= 10; i++) {
+    await expect(page.getByText(`Question ${i} of 10`)).toBeVisible();
+    const options = page.getByTestId("option");
+    // Rotate the pick so the attempt has a mix of right and wrong answers.
+    await options.nth((i - 1) % (await options.count())).click();
+    if (i < 10) {
+      await page.getByTestId("nav-next").click();
+    } else {
+      await page.getByTestId("submit-test").click();
+    }
+  }
+
+  await expect(page.getByTestId("results")).toBeVisible();
+  const scored = Number((await page.getByTestId("score").textContent())?.match(/\d+/)?.[0]);
+  const liveVerdicts = await page.getByTestId("review-status").allTextContents();
+  expect(liveVerdicts).toHaveLength(10);
+  expect(liveVerdicts.filter((v) => v === "Correct")).toHaveLength(scored);
+
+  // Same attempt, reopened from history — the saved review must agree exactly.
+  await page.getByRole("link", { name: "Home" }).click();
+  await page.getByRole("link", { name: "Review" }).first().click();
+
+  await expect(page.getByRole("heading", { name: "Test Review" })).toBeVisible();
+  await expect(page.getByTestId("review-status")).toHaveCount(10);
+  expect(await page.getByTestId("review-status").allTextContents()).toEqual(liveVerdicts);
+});
+
 test("road-test guide: rating a maneuver updates readiness", async ({ page }) => {
   await page.goto("/road-test");
   await expect(

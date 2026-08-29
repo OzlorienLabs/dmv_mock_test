@@ -213,6 +213,39 @@ describe("computeTroubleQuestions", () => {
     expect(result[0].wrongCount).toBe(3);
     expect(result[0].seenCount).toBe(3);
   });
+
+  // Options are shuffled per attempt, so a recorded selectedIndex indexes the
+  // SHUFFLED list — comparing it to the bank's correctIndex invents wrong
+  // answers. The recorded `correct` flag is the authoritative signal.
+  it("trusts the recorded `correct` flag over the shuffled index", () => {
+    const qLookup = new Map([
+      ["q1", { prompt: "Q1", category: "parking" as const, correctIndex: 0, options: ["A", "B", "C"] }],
+    ]);
+    const attempts: StoredAttempt[] = [
+      // Answered right every time; the index differs because of the shuffle.
+      makeAttempt({ answers: [{ questionId: "q1", selectedIndex: 2, correct: true }] }),
+      makeAttempt({ answers: [{ questionId: "q1", selectedIndex: 1, correct: true }] }),
+      makeAttempt({ answers: [{ questionId: "q1", selectedIndex: 2, correct: true }] }),
+    ];
+
+    expect(computeTroubleQuestions(attempts, qLookup)).toEqual([]);
+  });
+
+  it("still flags genuinely-missed questions when the flag says wrong", () => {
+    const qLookup = new Map([
+      ["q1", { prompt: "Q1", category: "parking" as const, correctIndex: 0, options: ["A", "B", "C"] }],
+    ]);
+    const attempts: StoredAttempt[] = [
+      // selectedIndex 0 matches the bank's correctIndex, but the shuffle means
+      // it was actually a wrong option.
+      makeAttempt({ answers: [{ questionId: "q1", selectedIndex: 0, correct: false }] }),
+      makeAttempt({ answers: [{ questionId: "q1", selectedIndex: 0, correct: false }] }),
+    ];
+
+    const result = computeTroubleQuestions(attempts, qLookup);
+    expect(result).toHaveLength(1);
+    expect(result[0].wrongCount).toBe(2);
+  });
 });
 
 /* ── Messages ────────────────────────────────────────────────── */

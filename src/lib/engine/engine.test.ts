@@ -5,6 +5,7 @@ import {
   mulberry32,
   shuffle,
   shuffleOptions,
+  applyOptionOrder,
   allocateByWeight,
   buildMockTest,
   buildAdaptiveMockTest,
@@ -217,6 +218,87 @@ describe("shuffleOptions", () => {
       expect(r.options[r.correctIndex]).toBe("alpha");
     }
   });
+
+  it("records the permutation so the shuffle can be replayed later", () => {
+    const q: Question = {
+      id: "x",
+      category: "parking",
+      prompt: "p",
+      options: ["alpha", "bravo", "charlie"],
+      correctIndex: 0,
+      origin: "generated",
+    };
+    for (let s = 1; s < 25; s++) {
+      const r = shuffleOptions(q, mulberry32(s));
+      expect(r.optionOrder).toBeDefined();
+      // optionOrder[displayed position] = index into the canonical options.
+      expect([...r.optionOrder!].sort()).toEqual([0, 1, 2]);
+      expect(r.optionOrder!.map((i) => q.options[i])).toEqual(r.options);
+      expect(applyOptionOrder(q, r.optionOrder!)).toEqual(r);
+    }
+  });
+});
+
+describe("applyOptionOrder", () => {
+  const q: Question = {
+    id: "x",
+    category: "parking",
+    prompt: "p",
+    options: ["alpha", "bravo", "charlie"],
+    correctIndex: 1,
+    origin: "generated",
+  };
+
+  it("re-applies a recorded permutation exactly", () => {
+    const r = applyOptionOrder(q, [2, 0, 1]);
+    expect(r.options).toEqual(["charlie", "alpha", "bravo"]);
+    expect(r.correctIndex).toBe(2); // "bravo" moved to position 2
+    expect(r.optionOrder).toEqual([2, 0, 1]);
+  });
+
+  it("returns the question untouched for a malformed order", () => {
+    for (const bad of [[0, 1], [0, 1, 2, 3], [0, 0, 1], [0, 1, 5], [-1, 0, 1]]) {
+      expect(applyOptionOrder(q, bad)).toBe(q);
+    }
+  });
+
+  it("is a no-op for the identity order", () => {
+    expect(applyOptionOrder(q, [0, 1, 2]).options).toEqual(q.options);
+    expect(applyOptionOrder(q, [0, 1, 2]).correctIndex).toBe(q.correctIndex);
+  });
+});
+
+describe("built tests carry their option order", () => {
+  it("attaches optionOrder to every question of an adaptive test", () => {
+    const pool = makePool(3);
+    for (const q of buildAdaptiveMockTest(pool, 10, mulberry32(4), {})) {
+      expect(q.optionOrder).toHaveLength(q.options.length);
+      const canonical = pool.find((p) => p.id === q.id)!;
+      expect(q.optionOrder!.map((i) => canonical.options[i])).toEqual(q.options);
+      expect(q.options[q.correctIndex]).toBe(canonical.options[canonical.correctIndex]);
+    }
+  });
+
+  it("attaches optionOrder to every question of a plain mock test", () => {
+    const pool = makePool(3);
+    for (const q of buildMockTest(pool, 10, mulberry32(4))) {
+      expect(q.optionOrder).toHaveLength(q.options.length);
+      const canonical = pool.find((p) => p.id === q.id)!;
+      expect(q.optionOrder!.map((i) => canonical.options[i])).toEqual(q.options);
+    }
+  });
+
+  it("attaches optionOrder when the pool is smaller than the requested count", () => {
+    const pool = makePool(1).slice(0, 3);
+    for (const build of [buildMockTest, buildAdaptiveMockTest]) {
+      const built =
+        build === buildMockTest
+          ? buildMockTest(pool, 10, mulberry32(4))
+          : buildAdaptiveMockTest(pool, 10, mulberry32(4), {});
+      expect(built.length).toBe(pool.length);
+      for (const q of built) expect(q.optionOrder).toHaveLength(q.options.length);
+    }
+  });
 });
 
 describe("scoreAttempt", () => {
@@ -268,5 +350,24 @@ describe("scoreAttempt", () => {
     );
     expect(result.perCategory.parking).toEqual({ correct: 2, total: 2 });
     expect(result.perCategory["speed-limits"]).toEqual({ correct: 0, total: 1 });
+  });
+
+  it("carries each question's option order through, so review can replay it", () => {
+    const shown = questions.map((q, i) => shuffleOptions(q, mulberry32(i + 1)));
+    const result = scoreAttempt(
+      shown,
+      shown.map((q) => ({ questionId: q.id, selectedIndex: q.correctIndex })),
+      3,
+    );
+    expect(result.correctCount).toBe(3);
+    for (const item of result.items) {
+      const q = shown.find((s) => s.id === item.questionId)!;
+      expect(item.optionOrder).toEqual(q.optionOrder);
+    }
+  });
+
+  it("leaves optionOrder undefined for questions that were never shuffled", () => {
+    const result = scoreAttempt(questions, [{ questionId: "q1", selectedIndex: 0 }], 1);
+    expect(result.items[0].optionOrder).toBeUndefined();
   });
 });

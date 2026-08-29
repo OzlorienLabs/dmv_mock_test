@@ -21,12 +21,25 @@ export interface StoredAttempt {
   passed: boolean;
   perCategory: Partial<Record<CategoryId, CategoryScore>>;
   /** Per-question answers recorded for review and adaptive selection. */
-  answers?: {
-    questionId: string;
-    selectedIndex: number | null;
-    /** Whether this answer was correct (recorded since the adaptive update). */
-    correct?: boolean;
-  }[];
+  answers?: StoredAnswer[];
+}
+
+export interface StoredAnswer {
+  questionId: string;
+  /**
+   * Index into the options AS SHOWN during the attempt — options are shuffled
+   * per attempt, so this is NOT an index into the bank question's options.
+   * Use `optionOrder` to translate; see `resolveReviewItems`.
+   */
+  selectedIndex: number | null;
+  /** Whether this answer was correct (recorded since the adaptive update). */
+  correct?: boolean;
+  /**
+   * The option permutation used for this question during the attempt, as
+   * `optionOrder[shown position] = index into the bank question's options`.
+   * Recorded since the review fix; absent on older attempts.
+   */
+  optionOrder?: number[];
 }
 
 export interface ProgressSummary {

@@ -241,7 +241,15 @@ export function computeTroubleQuestions(
       if (!q) continue;
       const entry = stats.get(ans.questionId) ?? { wrong: 0, seen: 0 };
       entry.seen++;
-      if (ans.selectedIndex !== q.correctIndex) {
+      // `correct` was computed at test time against the options AS SHOWN.
+      // `selectedIndex` indexes those shuffled options, so comparing it to the
+      // bank's correctIndex is meaningless — only fall back to that for the
+      // oldest attempts, which predate the flag.
+      const wrong =
+        ans.correct !== undefined
+          ? !ans.correct
+          : ans.selectedIndex !== q.correctIndex;
+      if (wrong) {
         entry.wrong++;
       }
       stats.set(ans.questionId, entry);

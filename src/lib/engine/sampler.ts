@@ -5,16 +5,47 @@ import { shuffle, type RNG } from "./rng";
  * Return a copy of the question with its answer options shuffled (and
  * `correctIndex` updated). Used at test-build time so the correct answer isn't
  * biased toward a fixed position regardless of how a question was authored.
+ *
+ * The permutation is recorded on the copy as `optionOrder` so the exact option
+ * order can be replayed later (see {@link applyOptionOrder}). A recorded answer
+ * is an index into the SHUFFLED options, so anything that re-resolves the
+ * question from the bank — the review screen, analytics — needs this to
+ * interpret it.
  */
 export function shuffleOptions(q: Question, rng: RNG): Question {
   const order = shuffle(
     q.options.map((_, i) => i),
     rng,
   );
+  return applyOptionOrder(q, order);
+}
+
+/** Is `order` a valid permutation of `q.options`' indices? */
+function isValidOrder(q: Question, order: readonly number[]): boolean {
+  if (order.length !== q.options.length) return false;
+  const seen = new Set<number>();
+  for (const i of order) {
+    if (!Number.isInteger(i) || i < 0 || i >= q.options.length || seen.has(i)) {
+      return false;
+    }
+    seen.add(i);
+  }
+  return true;
+}
+
+/**
+ * Re-apply a permutation recorded by {@link shuffleOptions} to the canonical
+ * bank question, reproducing exactly what the learner was shown. A malformed
+ * order (corrupt or truncated storage, or a question whose options changed
+ * since the attempt) returns the question unchanged rather than scrambling it.
+ */
+export function applyOptionOrder(q: Question, order: readonly number[]): Question {
+  if (!isValidOrder(q, order)) return q;
   return {
     ...q,
     options: order.map((i) => q.options[i]),
     correctIndex: order.indexOf(q.correctIndex),
+    optionOrder: [...order],
   };
 }
 
@@ -69,7 +100,9 @@ export function buildMockTest(
   count: number,
   rng: RNG,
 ): Question[] {
-  if (pool.length <= count) return shuffle(pool, rng);
+  if (pool.length <= count) {
+    return shuffle(pool, rng).map((q) => shuffleOptions(q, rng));
+  }
 
   const byCategory = new Map<CategoryId, Question[]>();
   for (const q of pool) {

@@ -123,6 +123,11 @@ export function TestRunner({
         questionId: it.questionId,
         selectedIndex: it.selectedIndex,
         correct: it.correct,
+        // The per-attempt option shuffle. Without it a stored selectedIndex
+        // can't be mapped back to the bank question, and the review screen
+        // reports correct answers as wrong. Omitted (never `undefined`) when
+        // absent — Firestore rejects undefined field values.
+        ...(it.optionOrder ? { optionOrder: it.optionOrder } : {}),
       })),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps

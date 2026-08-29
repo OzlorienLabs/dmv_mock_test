@@ -69,6 +69,14 @@ export interface Question {
   options: string[];
   /** Index into `options` of the correct answer. */
   correctIndex: number;
+  /**
+   * Only present on a per-attempt copy produced by `shuffleOptions`: the
+   * permutation that was applied, as `optionOrder[displayed position] = index
+   * into the canonical bank question's options`. Recorded with the attempt so a
+   * later review can replay the exact option order the learner saw — without it,
+   * a stored `selectedIndex` (which is in shuffled space) is meaningless.
+   */
+  optionOrder?: number[];
   /** Short explanation of the correct answer (English seed; other langs added later). */
   explanation?: string;
   /** Optional diagram key rendered alongside the question. */

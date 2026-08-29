@@ -6,6 +6,12 @@ export interface ScoredItem {
   selectedIndex: number | null;
   correctIndex: number;
   correct: boolean;
+  /**
+   * The option permutation the learner was shown (see `shuffleOptions`).
+   * `selectedIndex` and `correctIndex` are indices into THAT order, so this must
+   * be persisted alongside them for a later review to be interpretable.
+   */
+  optionOrder?: number[];
 }
 
 export interface CategoryScore {
@@ -55,6 +61,7 @@ export function scoreAttempt(
       selectedIndex,
       correctIndex: q.correctIndex,
       correct,
+      ...(q.optionOrder ? { optionOrder: q.optionOrder } : {}),
     });
 
     const bucket = perCategory[q.category] ?? { correct: 0, total: 0 };

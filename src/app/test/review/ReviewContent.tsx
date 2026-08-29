@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useProgress } from "@/lib/progress/provider";
 import { getAttempts } from "@/lib/progress/store";
+import { resolveReviewItems } from "@/lib/progress/review";
 import { TEST_PROFILES } from "@/lib/engine/profiles";
 import { CATEGORY_MAP, type Question } from "@/lib/types";
 import { QuestionReview } from "@/components/QuestionReview";
@@ -124,17 +125,14 @@ export default function ReviewContent() {
     );
   }
 
-  // Resolve questions — skip any that are no longer in the bank
-  const resolved: { question: Question; selectedIndex: number | null }[] = [];
-  let skipped = 0;
-  for (const ans of attempt.answers) {
-    const q = questionMap.get(ans.questionId);
-    if (q) {
-      resolved.push({ question: q, selectedIndex: ans.selectedIndex });
-    } else {
-      skipped++;
-    }
-  }
+  // Map the saved answers back onto the bank, replaying each question's
+  // per-attempt option shuffle so the review shows exactly what the learner saw
+  // (a raw stored index would mark correct answers wrong). Questions no longer
+  // in the bank are skipped.
+  const { items: resolved, missing: skipped } = resolveReviewItems(
+    attempt.answers,
+    questionMap,
+  );
 
   const pct =
     attempt.total > 0
@@ -239,11 +237,12 @@ export default function ReviewContent() {
         Review answers
       </h3>
       <ol className="space-y-3">
-        {resolved.map(({ question, selectedIndex }, i) => (
+        {resolved.map(({ question, selectedIndex, outcome }, i) => (
           <QuestionReview
             key={question.id}
             question={question}
             selectedIndex={selectedIndex}
+            outcome={outcome}
             number={i + 1}
           />
         ))}
